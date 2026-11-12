@@ -5,7 +5,7 @@ window.TT = window.TT || {};
  * mắt to, áo khoác cổ lông, tay cầm trường kiếm), tô màu cel-shading viền mảnh.
  * Dựng thành sprite sheet lúc khởi động: 5 hoạt cảnh (idle, walk, dash, cast, hurt) x 3 hướng
  * (down, up, side; trái = lật side). NPC dùng cùng khung, khác bảng màu và đặc điểm (FEAT).
- * Lớp linh khí (hào quang, pháp trận, phi bạch, hạt linh khí, ảnh tàn) vẽ lúc chạy.
+ * Lớp linh khí (hào quang, pháp trận, thần luân sau lưng, hạt linh khí, ảnh tàn) vẽ lúc chạy.
  */
 (function (TT) {
   'use strict';
@@ -556,19 +556,129 @@ window.TT = window.TT || {};
     ctx.setLineDash([4, 5]); ctx.lineDashOffset = -t * 12;
     ctx.beginPath(); ctx.ellipse(x, y + FOOT_OFFSET, 18 * power, 6 * power, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.setLineDash([]);
-    // phi bạch: dải lụa linh khí vắt qua vai, đuôi bay ngược hướng di chuyển
-    const mvx = st.mvx || 0, mvy = st.mvy || 0;
-    const w1 = Math.sin(t * 3.1) * 4, w2 = Math.sin(t * 2.7 + 1.3) * 4;
-    const L = [x - 32 + w1 - mvx * 10, y + 4 + w2 * 0.5 - mvy * 10];
-    const R = [x + 32 - w2 - mvx * 10, y + 4 + w1 * 0.5 - mvy * 10];
-    const path = () => {
-      ctx.beginPath(); ctx.moveTo(L[0], L[1]);
-      ctx.quadraticCurveTo(x - 28, y - 18, x - 14, y - 26);
-      ctx.bezierCurveTo(x - 6, y - 32, x + 6, y - 32, x + 14, y - 26);
-      ctx.quadraticCurveTo(x + 28, y - 18, R[0], R[1]);
-    };
-    path(); ctx.strokeStyle = A.rgba(color, 0.3); ctx.lineWidth = 6; ctx.stroke();
-    path(); ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.restore();
+  }
+
+  // ------------------------------------------------------------ thần luân (Dao wheel) sau lưng
+  const WHEEL_RUNES = '乾坤震巽坎離艮兌';
+  /** RNG nhỏ có seed, dùng cho tia sét để khung hình ổn định trong cùng 1 nhịp. */
+  function sparkRng(seed) {
+    let s = (seed * 9301 + 49297) % 233280;
+    return () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  }
+  /**
+   * Thần luân nhiều tầng: vành ngoài có vạch chia, vòng phù văn bát quái quay ngược,
+   * vòng cung năng lượng quay nhanh, trục nan hoa ở giữa. Cảnh giới càng cao càng thêm tầng
+   * (lv>=1 hào quang tia, lv>=2 quỹ đạo linh châu, lv>=3 vành ngoài cùng). Khi vận công có tia sét.
+   * Màu theo hệ (color), nên Hỏa tu ra luân vàng đỏ, Băng tu ra luân băng lam.
+   */
+  function daoWheel(ctx, x, y, t, st, color, lv, alphaMul) {
+    const A = TT.Art;
+    const cast = Math.max(0, Math.min(1, st.cast || 0));
+    const R = 22 + Math.min(lv, 4) * 1.5;
+    const spin = t * (1 + cast * 3);
+    const a = alphaMul * (st.dash ? 0.45 : 1) * (0.85 + Math.sin(t * 2.2) * 0.15);
+    const col = (al) => A.rgba(color, Math.min(1, al * a));
+    const white = (al) => `rgba(255,255,255,${Math.min(1, al * a)})`;
+    const circle = (r, w, style) => { ctx.strokeStyle = style; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke(); };
+
+    ctx.save();
+    ctx.translate(x, y - 40);
+    ctx.scale(1, 0.96); // hơi nghiêng cho góc nhìn top-down
+    ctx.globalCompositeOperation = 'lighter';
+    A.glow(ctx, 0, 0, R * 1.55, color, (0.16 + cast * 0.2) * a);
+
+    // tầng ngoài cùng (lv>=3): vành chấm quay ngược
+    if (lv >= 3) {
+      ctx.save(); ctx.rotate(-spin * 0.15);
+      ctx.setLineDash([1.5, 3.5]); circle(R + 7, 1, col(0.55)); ctx.setLineDash([]);
+      ctx.restore();
+    }
+    // hào quang tia (lv>=1)
+    if (lv >= 1) {
+      ctx.save(); ctx.rotate(spin * 0.1);
+      const n = 16;
+      for (let i = 0; i < n; i++) {
+        const ang = (i / n) * TAU;
+        const len = 3 + (i % 2) * 2.5 + Math.sin(t * 4 + i) * 1.2 + cast * 3;
+        ctx.save(); ctx.rotate(ang);
+        ctx.fillStyle = col(0.45);
+        ctx.beginPath(); ctx.moveTo(-1.2, -R - 1); ctx.lineTo(0, -R - 1 - len); ctx.lineTo(1.2, -R - 1); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+    // vành chính: 2 đường tròn + vạch chia
+    ctx.save(); ctx.rotate(spin * 0.25);
+    circle(R, 3.2, col(0.3));
+    circle(R, 1.1, white(0.85));
+    circle(R - 4, 0.8, col(0.6));
+    ctx.strokeStyle = col(0.75); ctx.lineWidth = 0.8;
+    for (let i = 0; i < 24; i++) {
+      const ang = (i / 24) * TAU, r0 = i % 3 ? R - 1.8 : R - 4;
+      ctx.beginPath(); ctx.moveTo(Math.cos(ang) * r0, Math.sin(ang) * r0); ctx.lineTo(Math.cos(ang) * R, Math.sin(ang) * R); ctx.stroke();
+    }
+    ctx.restore();
+    // vòng phù văn bát quái quay ngược
+    ctx.save(); ctx.rotate(-spin * 0.4);
+    ctx.font = 'bold 5px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = 0; i < 8; i++) {
+      ctx.save(); ctx.rotate((i / 8) * TAU); ctx.translate(0, -(R - 8));
+      ctx.fillStyle = col(0.5); ctx.fillText(WHEEL_RUNES[i], 0.4, 0.4);
+      ctx.fillStyle = white(0.9); ctx.fillText(WHEEL_RUNES[i], 0, 0);
+      ctx.restore();
+    }
+    circle(R - 12, 0.7, col(0.5));
+    ctx.restore();
+    // vòng cung năng lượng quay nhanh
+    ctx.save(); ctx.rotate(spin * 0.9);
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 6; k++) {
+      const s0 = (k / 6) * TAU;
+      ctx.strokeStyle = col(0.7); ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(0, 0, R - 14.5, s0, s0 + (TAU / 6) * 0.6); ctx.stroke();
+    }
+    ctx.restore();
+    // trục nan hoa
+    ctx.save(); ctx.rotate(-spin * 0.2);
+    ctx.strokeStyle = col(0.4); ctx.lineWidth = 0.7;
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * TAU;
+      ctx.beginPath(); ctx.moveTo(Math.cos(ang) * 3, Math.sin(ang) * 3); ctx.lineTo(Math.cos(ang) * (R - 12), Math.sin(ang) * (R - 12)); ctx.stroke();
+    }
+    circle(3.5, 1, white(0.7));
+    ctx.restore();
+    // quỹ đạo linh châu (lv>=2)
+    if (lv >= 2) {
+      ctx.save(); ctx.rotate(0.5);
+      ctx.strokeStyle = col(0.3); ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.ellipse(0, 0, R + 4, (R + 4) * 0.32, 0, 0, TAU); ctx.stroke();
+      for (let i = 0; i < 3; i++) {
+        const ang = t * 1.6 + (i / 3) * TAU;
+        const ox = Math.cos(ang) * (R + 4), oy = Math.sin(ang) * (R + 4) * 0.32;
+        A.glow(ctx, ox, oy, 4, color, 0.7 * a);
+        ctx.fillStyle = white(0.95); ctx.beginPath(); ctx.arc(ox, oy, 1.1, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    }
+    // tia sét khi vận công
+    if (cast > 0) {
+      const rnd = sparkRng(Math.floor(t * 24));
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let b = 0; b < 3 + Math.min(lv, 3); b++) {
+        const ang = rnd() * TAU;
+        const pts = [[Math.cos(ang) * R, Math.sin(ang) * R]];
+        let r = R;
+        for (let k = 0; k < 4; k++) {
+          r += 3 + rnd() * 4;
+          const aj = ang + (rnd() - 0.5) * 0.5;
+          pts.push([Math.cos(aj) * r, Math.sin(aj) * r]);
+        }
+        const bolt = () => { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); };
+        bolt(); ctx.strokeStyle = A.rgba(color, 0.55 * cast); ctx.lineWidth = 2.6; ctx.stroke();
+        bolt(); ctx.strokeStyle = `rgba(255,255,255,${0.95 * cast})`; ctx.lineWidth = 0.8; ctx.stroke();
+      }
+    }
     ctx.restore();
   }
 
@@ -620,9 +730,14 @@ window.TT = window.TT || {};
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath(); ctx.ellipse(x, y + FOOT_OFFSET, 17, 5.5, 0, 0, Math.PI * 2); ctx.fill();
     const spirit = st.spirit !== false;
+    // Quay lưng về camera (hướng 'up') thì thần luân nằm giữa camera và nhân vật nên vẽ đè lên, mờ hơn.
+    const lv = st.realm || 0;
+    const wheelFront = fr.dir === 'up';
     if (spirit) spiritBack(ctx, x, y, t, st, color, power);
+    if (spirit && !wheelFront) daoWheel(ctx, x, y, t, st, color, lv, 1);
     blit(ctx, sheet, fr, x, y);
     if (st.hurt) { ctx.save(); ctx.globalAlpha = 0.45; blit(ctx, tinted(sheet, skinId, '#ffffff'), fr, x, y); ctx.restore(); }
+    if (spirit && wheelFront) daoWheel(ctx, x, y, t, st, color, lv, 0.6);
     if (spirit) spiritFront(ctx, x, y, t, color, power);
     return fr;
   }
