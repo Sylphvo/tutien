@@ -1026,7 +1026,7 @@ window.TT = window.TT || {};
         draw.push({ y: p.y, f: () => {
           p.lastFrame = Art.drawPlayer(ctx, p.x, p.y, p.aim, t, {
             moving: p.moving, dash: p.dashT > 0, dashAngle: Math.atan2(p.dashDir[1], p.dashDir[0]),
-            cast: p.castT / CAST_DURATION, hurt: p.hurtT > 0, color: wcol, realm: st.realm, skin: st.skin,
+            cast: p.castT / CAST_DURATION, hurt: p.hurtT > 0, color: wcol, realm: st.realm, skin: st.skin, sword: st.swordSkin,
             mvx: p.mvx, mvy: p.mvy, ghosts: p.ghosts
           });
         } });
@@ -1047,7 +1047,8 @@ window.TT = window.TT || {};
       }
       for (const q of sc.qi) { Art.glow(ctx, q.x, q.y, 14, wcol, 0.9); }
       ctx.globalCompositeOperation = 'source-over';
-      for (const s of this.swords) Art.drawSword(ctx, s.x, s.y, s.ang, 30, wcol, 1);
+      const swSkin = D.swordSkins.find(k => k.id === st.swordSkin);
+      for (const s of this.swords) Art.drawSword(ctx, s.x, s.y, s.ang, 30, wcol, 1, swSkin);
       // đạn địch
       ctx.globalCompositeOperation = 'lighter';
       for (const b of sc.eproj) { Art.glow(ctx, b.x, b.y, 14, b.color, 0.9); lights.push([b.x, b.y, 50, 0.5]); }
