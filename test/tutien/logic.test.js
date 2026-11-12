@@ -11,6 +11,13 @@ vm.createContext(ctx);
 for (const f of ['util.js', 'data.js', 'items.js', 'state.js']) vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx);
 const TT = ctx.TT, D = TT.DATA, I = TT.Items;
 
+// 0. Skin Kiếm Nhật Diệm is available to the gallery and rendering pipeline
+const solarFlameSword = D.swordSkins.find(sword => sword.id === 'NHAT_DIEM');
+assert(solarFlameSword, 'thiếu skin Nhật Diệm');
+assert.strictEqual(solarFlameSword.shape, 'solar_flame');
+assert.strictEqual(solarFlameSword.pal.blade, '#201b18');
+assert.strictEqual(solarFlameSword.pal.gem, '#fff3a0');
+
 // 1. Sinh trang bị đúng số dòng, Tier trong giới hạn, không trùng, Unique hợp lệ
 for (let n = 0; n < 5000; n++) {
   const it = I.createEquipment({ level: 1 + (n % 12), identified: true });
@@ -80,5 +87,10 @@ const p = new TT.PlayerState(); p.giveStartingKit();
 p.addTuvi(10000);
 assert.strictEqual(p.realm, 0); assert.strictEqual(p.stage, 2); assert(p.atBottleneck());
 assert.strictEqual(p.nextTribulation(), 'TRUC_CO');
+
+// 9. Bí Cảnh Cổ Thành phải có tướng trấn thành hợp lệ
+assert.strictEqual(D.biomes.THANH_LUY.fortress, true);
+assert.strictEqual(D.biomes.THANH_LUY.boss, 'THANH_CHU');
+assert.strictEqual(D.enemies.THANH_CHU.boss, true);
 
 console.log('Tất cả kiểm tra logic đều đạt.');

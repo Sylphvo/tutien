@@ -43,6 +43,9 @@
     <h2>KIẾM TU · Y PHỤC <small>Bấm vào thẻ để xem skin đó ở mục Hoạt Cảnh</small></h2>
     <div class="cards" id="skins"></div>
 
+    <h2>KIẾM TU · KIẾM HÌNH <small>Mỗi thẻ hiển thị nhân vật đang cầm kiếm; chọn để cập nhật Hoạt Cảnh</small></h2>
+    <div class="cards" id="sword-skins"></div>
+
     <h2>NPC TÔNG MÔN <small>Đứng · Quay lưng · Đi ngang. Tên vàng = NPC có chức năng</small></h2>
     <div class="cards" id="npcs"></div>
 
@@ -60,7 +63,7 @@
   (function () {
     'use strict';
     const D = TT.DATA, U = TT.util, PPM = D.world.pixelsPerMeter;
-    const opt = { zoom: 2, bg: 'tongmon', color: D.elements.colors.Kim, realm: 0, skin: D.skins[0].id };
+    const opt = { zoom: 2, bg: 'tongmon', color: D.elements.colors.Kim, realm: 0, skin: D.skins[0].id, sword: D.swordSkins[0].id };
 
     // ---------------------------------------------------------- thanh điều khiển
     function buttons(id, items, key, onChange) {
@@ -121,7 +124,7 @@
     document.getElementById('anim-labels').innerHTML = ANIM_CASES.map(c => `<span>${c[0]}</span>`).join('');
     cards.push({ cv: animCv, w: ANIM_CASES.length * 90, h: 120, draw: (ctx, t) => {
       ANIM_CASES.forEach(([, aim, st], i) => {
-        const s = Object.assign({ color: opt.color, realm: opt.realm, skin: opt.skin }, st);
+        const s = Object.assign({ color: opt.color, realm: opt.realm, skin: opt.skin, sword: opt.sword }, st);
         if (st.castLoop) s.cast = 1 - (t % 0.7) / 0.25;
         TT.Character.draw(ctx, 45 + i * 90, 84, aim, t, s);
       });
@@ -135,8 +138,30 @@
         `<div class="name">${U.esc(sk.name)}</div><div class="meta">${sk.price ? '◆ ' + U.fmt(sk.price) + ' Linh Thạch' : 'Miễn phí'}${req}</div><div class="desc">${U.esc(sk.desc)}</div>`,
         3 * 80, 110,
         (ctx, t) => SKIN_POSES.forEach(([, aim, st], i) =>
-          TT.Character.draw(ctx, 40 + i * 80, 76, aim, t, Object.assign({ color: opt.color, realm: opt.realm, skin: sk.id }, st))),
+          TT.Character.draw(ctx, 40 + i * 80, 76, aim, t, Object.assign({ color: opt.color, realm: opt.realm, skin: sk.id, sword: opt.sword }, st))),
         () => { opt.skin = sk.id; window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    });
+
+    // Kiếm hình
+    const swordWrap = document.getElementById('sword-skins');
+    D.swordSkins.forEach(sk => {
+      const req = sk.realm ? ` · Cần ${D.realms[sk.realm].name}` : '';
+      makeCard(swordWrap,
+        `<div class="name">${U.esc(sk.name)}</div><div class="meta">${sk.price ? '◆ ' + U.fmt(sk.price) + ' Linh Thạch' : 'Miễn phí'}${req}</div><div class="desc">${U.esc(sk.desc)}</div>`,
+        360, 190,
+        (ctx, t) => {
+          ctx.fillStyle = '#7d8aa0'; ctx.font = '9px "Segoe UI", sans-serif';
+          ctx.textAlign = 'center'; ctx.fillText('NHÂN VẬT ĐANG CẦM', 112, 16);
+          ctx.fillText('CHI TIẾT KIẾM', 286, 16);
+          SKIN_POSES.forEach(([, aim, st], i) => {
+            TT.Character.draw(ctx, 42 + i * 70, 134, aim, t, Object.assign({ color: opt.color, realm: opt.realm, skin: opt.skin, sword: sk.id }, st));
+          });
+          ctx.save(); ctx.globalCompositeOperation = 'lighter';
+          TT.Art.glow(ctx, 286, 101, 28, sk.pal.gem || sk.pal.gold || opt.color, 0.3);
+          ctx.restore();
+          TT.Art.drawSword(ctx, 286, 101, -Math.PI / 2, 64, opt.color, 1, sk);
+        },
+        () => { opt.sword = sk.id; window.scrollTo({ top: 0, behavior: 'smooth' }); });
     });
 
     // NPC

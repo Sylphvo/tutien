@@ -26,8 +26,131 @@ window.TT = window.TT || {};
     jian:  { len: 1,    w: 1,    taper: 0.67, guard: 1,    blunt: false }, // trường kiếm thẳng
     thin:  { len: 1.08, w: 0.72, taper: 0.7,  guard: 0.8,  blunt: false }, // kiếm mảnh
     broad: { len: 1,    w: 1.4,  taper: 0.85, guard: 1.15, blunt: false }, // bản rộng
-    heavy: { len: 0.95, w: 1.8,  taper: 0.95, guard: 1.3,  blunt: true }   // trọng kiếm mũi bằng
+    heavy: { len: 0.95, w: 1.8,  taper: 0.95, guard: 1.3,  blunt: true },  // trọng kiếm mũi bằng
+    solar_flame: { len: 1.08, w: 1.3, taper: 0.62, guard: 1.5, blunt: false }
   };
+
+  function drawSolarFlameSword(ctx, x, y, angle, len, alpha, pal) {
+    const blade = len * 1.22, width = len * 0.16;
+    const gold = pal.gold || '#d99a25', goldHi = pal.goldHi || '#fff2a6';
+    const goldDark = pal.goldDark || '#624018', accent = pal.accent || '#ffb52e';
+    const steel = pal.blade || '#201b18', shade = pal.bladeShade || '#62513b';
+    const hilt = pal.hilt || '#211b18', gem = pal.gem || '#fff3a0';
+
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(angle);
+    ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+
+    // Long asymmetric dark blade with a molten-gold edge and a swept flame fuller.
+    const bladeGrad = ctx.createLinearGradient(0, -width, 0, width);
+    bladeGrad.addColorStop(0, '#f6df9e');
+    bladeGrad.addColorStop(0.13, shade);
+    bladeGrad.addColorStop(0.42, '#171411');
+    bladeGrad.addColorStop(0.75, steel);
+    bladeGrad.addColorStop(1, '#09090a');
+    ctx.fillStyle = bladeGrad;
+    ctx.strokeStyle = '#17130f'; ctx.lineWidth = Math.max(1.2, len * 0.018);
+    ctx.beginPath();
+    ctx.moveTo(len * 0.09, -width * 0.18);
+    ctx.bezierCurveTo(len * 0.25, -width * 0.32, len * 0.41, -width * 0.29, len * 0.53, -width * 0.19);
+    ctx.bezierCurveTo(len * 0.76, -width * 0.13, len * 0.98, -width * 0.09, blade, 0);
+    ctx.bezierCurveTo(len * 1.01, width * 0.09, len * 0.88, width * 0.16, len * 0.77, width * 0.21);
+    ctx.bezierCurveTo(len * 0.69, width * 0.35, len * 0.57, width * 0.49, len * 0.5, width * 0.33);
+    ctx.bezierCurveTo(len * 0.39, width * 0.16, len * 0.27, width * 0.14, len * 0.13, width * 0.08);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    ctx.strokeStyle = goldHi; ctx.lineWidth = Math.max(1.2, len * 0.024);
+    ctx.beginPath();
+    ctx.moveTo(len * 0.12, width * 0.07);
+    ctx.bezierCurveTo(len * 0.28, width * 0.15, len * 0.39, width * 0.39, len * 0.5, width * 0.42);
+    ctx.bezierCurveTo(len * 0.63, width * 0.35, len * 0.68, width * 0.18, len * 0.79, width * 0.13);
+    ctx.bezierCurveTo(len * 0.94, width * 0.08, len * 1.08, width * 0.04, blade * 0.98, 0);
+    ctx.stroke();
+    ctx.strokeStyle = accent; ctx.lineWidth = Math.max(1.5, len * 0.043);
+    ctx.beginPath();
+    ctx.moveTo(len * 0.1, width * 0.03);
+    ctx.bezierCurveTo(len * 0.23, width * 0.12, len * 0.31, width * 0.33, len * 0.42, width * 0.3);
+    ctx.bezierCurveTo(len * 0.55, width * 0.26, len * 0.57, width * 0.08, len * 0.7, width * 0.06);
+    ctx.bezierCurveTo(len * 0.8, width * 0.045, len * 0.91, width * 0.04, len * 0.98, 0);
+    ctx.stroke();
+
+    // Broad, hooked dark wings and gold flame sweeps form the reference crossguard.
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = side < 0 ? gold : goldHi;
+      ctx.beginPath();
+      ctx.moveTo(len * 0.08, side * len * 0.12);
+      ctx.bezierCurveTo(-len * 0.12, side * len * 0.23, -len * 0.3, side * len * 0.48, -len * 0.52, side * len * 0.49);
+      ctx.bezierCurveTo(-len * 0.37, side * len * 0.32, -len * 0.33, side * len * 0.18, -len * 0.1, side * len * 0.12);
+      ctx.closePath(); ctx.fill();
+    }
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = '#171411'; ctx.strokeStyle = goldDark; ctx.lineWidth = Math.max(1, len * 0.018);
+      ctx.beginPath(); ctx.moveTo(len * 0.12, side * len * 0.1);
+      ctx.bezierCurveTo(-len * 0.05, side * len * 0.16, -len * 0.17, side * len * 0.35, -len * 0.38, side * len * 0.4);
+      ctx.lineTo(-len * 0.31, side * len * 0.24);
+      ctx.bezierCurveTo(-len * 0.22, side * len * 0.06, -len * 0.06, side * len * 0.02, len * 0.12, side * len * 0.1);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = gold; ctx.lineWidth = Math.max(1.2, len * 0.026);
+      ctx.beginPath(); ctx.moveTo(-len * 0.31, side * len * 0.24);
+      ctx.quadraticCurveTo(-len * 0.18, side * len * 0.12, len * 0.08, side * len * 0.11); ctx.stroke();
+    }
+
+    // Dark ring guard, inset sunstone, wrapped grip and pointed pommel.
+    ctx.strokeStyle = '#17130f'; ctx.lineWidth = len * 0.115;
+    ctx.beginPath(); ctx.arc(0, 0, len * 0.17, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = gold; ctx.lineWidth = len * 0.068;
+    ctx.beginPath(); ctx.arc(0, 0, len * 0.17, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = goldHi; ctx.lineWidth = Math.max(1.1, len * 0.014);
+    ctx.beginPath(); ctx.arc(0, 0, len * 0.205, -Math.PI * 0.76, Math.PI * 0.76); ctx.stroke();
+    ctx.fillStyle = '#21180e';
+    ctx.beginPath(); ctx.arc(0, 0, len * 0.12, 0, Math.PI * 2); ctx.fill();
+    const orb = ctx.createRadialGradient(-len * 0.035, -len * 0.04, len * 0.015, 0, 0, len * 0.105);
+    orb.addColorStop(0, '#ffffff'); orb.addColorStop(0.28, goldHi); orb.addColorStop(0.68, gem); orb.addColorStop(1, goldDark);
+    ctx.fillStyle = orb;
+    ctx.beginPath(); ctx.arc(0, 0, len * 0.095, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff8c7'; ctx.beginPath();
+    ctx.moveTo(-len * 0.055, -len * 0.018); ctx.lineTo(-len * 0.018, -len * 0.055);
+    ctx.lineTo(len * 0.055, len * 0.018); ctx.lineTo(len * 0.018, len * 0.055);
+    ctx.closePath(); ctx.fill();
+
+    ctx.fillStyle = hilt;
+    ctx.beginPath();
+    ctx.moveTo(-len * 0.12, -len * 0.045); ctx.lineTo(-len * 0.77, -len * 0.034);
+    ctx.lineTo(-len * 0.91, 0); ctx.lineTo(-len * 0.77, len * 0.034);
+    ctx.lineTo(-len * 0.12, len * 0.045); ctx.closePath();
+    ctx.fill(); ctx.strokeStyle = '#17130f'; ctx.lineWidth = len * 0.025; ctx.stroke();
+    ctx.strokeStyle = gold; ctx.lineWidth = len * 0.035;
+    for (let i = 0; i < 4; i++) {
+      const hx = -len * (0.25 + i * 0.09);
+      ctx.beginPath(); ctx.moveTo(hx, -len * 0.04); ctx.lineTo(hx - len * 0.045, len * 0.04); ctx.stroke();
+    }
+    ctx.fillStyle = gold;
+    ctx.beginPath(); ctx.moveTo(-len * 0.88, -len * 0.015); ctx.lineTo(-len, 0);
+    ctx.lineTo(-len * 0.88, len * 0.015); ctx.closePath(); ctx.fill();
+
+    // Independent ember ornaments and long flame wisps around the hilt.
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = '#211b15'; ctx.strokeStyle = goldDark; ctx.lineWidth = Math.max(1, len * 0.014);
+      ctx.beginPath();
+      ctx.moveTo(len * 0.12, side * len * 0.32);
+      ctx.quadraticCurveTo(len * 0.19, side * len * 0.2, len * 0.24, side * len * 0.29);
+      ctx.lineTo(len * 0.3, side * len * 0.41);
+      ctx.quadraticCurveTo(len * 0.22, side * len * 0.37, len * 0.12, side * len * 0.32);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = side < 0 ? goldHi : accent; ctx.lineWidth = Math.max(1.4, len * 0.032);
+      ctx.beginPath(); ctx.moveTo(-len * 0.08, side * len * 0.2);
+      ctx.bezierCurveTo(-len * 0.32, side * len * 0.45, -len * 0.08, side * len * 0.64, -len * 0.2, side * len * 0.79);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = goldHi; ctx.lineWidth = Math.max(1.2, len * 0.026);
+    ctx.beginPath(); ctx.moveTo(len * 0.12, -len * 0.2);
+    ctx.quadraticCurveTo(len * 0.37, -len * 0.43, len * 0.3, -len * 0.63); ctx.stroke();
+    ctx.strokeStyle = accent; ctx.lineWidth = Math.max(1, len * 0.018);
+    ctx.beginPath(); ctx.moveTo(-len * 0.08, len * 0.23);
+    ctx.quadraticCurveTo(-len * 0.28, len * 0.38, -len * 0.15, len * 0.55); ctx.stroke();
+    ctx.restore();
+  }
 
   const Art = {
     canvas, rgba,
@@ -141,37 +264,109 @@ window.TT = window.TT || {};
 
     /** Phi kiếm phát sáng. skin (tuỳ chọn): phần tử D.swordSkins để đổi dáng và màu. */
     drawSword(ctx, x, y, angle, len, color, alpha, skin) {
+      if (skin && skin.shape === 'solar_flame') {
+        drawSolarFlameSword(ctx, x, y, angle, len, alpha, skin.pal || {});
+        return;
+      }
       const S = Art.swordShape(skin && skin.shape);
       const pal = (skin && skin.pal) || {};
+      const blade = pal.blade || '#eaf6ff';
+      const bladeShade = pal.bladeShade || '#6fc4e8';
+      const guard = pal.gold || color || '#ffd23f';
+      const hilt = pal.hilt || '#3a2a1a';
+      const accent = pal.accent || guard;
+      const gem = pal.gem || '#ffffff';
+      const baseLen = len * (0.7 + S.len * 0.42);
+      const halfW = len * 0.06 * S.w;
+      const lowW = len * 0.04 * S.w;
+      const rib = len * 0.12;
+      const gripLen = len * 0.22;
+
       ctx.save();
       ctx.translate(x, y); ctx.rotate(angle);
       ctx.globalAlpha = alpha === undefined ? 1 : alpha;
-      // lưỡi
-      const tip = len * (0.15 + 0.4 * S.len), hw = len * 0.07 * S.w, tw = len * 0.05 * S.w;
-      const fill = ctx.createLinearGradient(0, -hw, 0, hw);
-      fill.addColorStop(0, pal.blade || '#eaf6ff'); fill.addColorStop(0.55, pal.blade || '#eaf6ff');
-      fill.addColorStop(1, pal.bladeShade || pal.blade || '#eaf6ff');
-      ctx.fillStyle = fill;
+
+      // bóng / phản quang
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
       ctx.beginPath();
-      if (S.blunt) {
-        ctx.moveTo(tip, -hw * 0.5); ctx.lineTo(tip - len * 0.04, -hw * S.taper);
-        ctx.lineTo(len * 0.05, -hw); ctx.lineTo(-len * 0.15, -tw);
-        ctx.lineTo(-len * 0.15, tw); ctx.lineTo(len * 0.05, hw);
-        ctx.lineTo(tip - len * 0.04, hw * S.taper); ctx.lineTo(tip, hw * 0.5);
-      } else {
-        ctx.moveTo(tip, 0);
-        ctx.lineTo(len * 0.05, -hw); ctx.lineTo(-len * 0.15, -tw);
-        ctx.lineTo(-len * 0.15, tw); ctx.lineTo(len * 0.05, hw);
+      ctx.moveTo(baseLen * 0.1, 0);
+      ctx.lineTo(baseLen * 0.75, -halfW * 1.1);
+      ctx.lineTo(baseLen * 0.75, halfW * 1.1);
+      ctx.closePath();
+      ctx.fill();
+
+      // thân lưỡi: hình dáng vừa thô vừa thanh thoát
+      const bladeGrad = ctx.createLinearGradient(0, -halfW, 0, halfW);
+      bladeGrad.addColorStop(0, blade);
+      bladeGrad.addColorStop(0.35, '#ffffff');
+      bladeGrad.addColorStop(0.7, bladeShade);
+      bladeGrad.addColorStop(1, blade);
+      ctx.fillStyle = bladeGrad;
+      ctx.beginPath();
+      ctx.moveTo(baseLen * 0.92, 0);
+      ctx.lineTo(baseLen * 0.68, -halfW);
+      ctx.lineTo(baseLen * 0.08, -lowW);
+      ctx.lineTo(-baseLen * 0.18, -lowW * 0.9);
+      ctx.lineTo(-baseLen * 0.18, lowW * 0.9);
+      ctx.lineTo(baseLen * 0.08, lowW);
+      ctx.lineTo(baseLen * 0.68, halfW);
+      ctx.closePath();
+      ctx.fill();
+
+      // rãnh lưỡi / tỉa viền sáng
+      ctx.strokeStyle = rgba(accent, 0.8);
+      ctx.lineWidth = Math.max(1, len * 0.012);
+      ctx.beginPath();
+      ctx.moveTo(baseLen * 0.88, 0);
+      ctx.lineTo(baseLen * 0.2, 0);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.beginPath();
+      ctx.moveTo(baseLen * 0.7, -lowW * 0.45);
+      ctx.lineTo(baseLen * 0.15, -lowW * 0.25);
+      ctx.moveTo(baseLen * 0.7, lowW * 0.45);
+      ctx.lineTo(baseLen * 0.15, lowW * 0.25);
+      ctx.stroke();
+
+      // họa tiết dọc / sợi năng lượng
+      ctx.strokeStyle = rgba(gem, 0.55);
+      ctx.lineWidth = Math.max(1, len * 0.009);
+      for (let i = 1; i <= 3; i++) {
+        const x = baseLen * (0.35 + i * 0.14);
+        const w = halfW * (0.34 - i * 0.04);
+        ctx.beginPath();
+        ctx.moveTo(x, -w); ctx.lineTo(x + rib * 0.35, 0); ctx.lineTo(x, w);
+        ctx.stroke();
       }
-      ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
-      // đốc kiếm
-      ctx.fillStyle = pal.gold || color;
-      ctx.fillRect(-len * 0.2, -len * 0.13 * S.guard, len * 0.05, len * 0.26 * S.guard);
-      ctx.fillStyle = pal.hilt || '#3a2a1a';
-      ctx.fillRect(-len * 0.42, -len * 0.035, len * 0.22, len * 0.07);
-      ctx.fillStyle = pal.gold || color;
-      ctx.beginPath(); ctx.arc(-len * 0.44, 0, len * 0.04, 0, Math.PI * 2); ctx.fill();
+
+      // chỗ gắn vào chuôi
+      ctx.fillStyle = guard;
+      ctx.fillRect(-len * 0.08, -len * 0.24 * S.guard, len * 0.16, len * 0.48 * S.guard);
+      ctx.fillStyle = rgba(guard, 0.8);
+      ctx.fillRect(-len * 0.12, -len * 0.18 * S.guard, len * 0.24, len * 0.36 * S.guard);
+      // trang sức bên hông
+      ctx.fillStyle = gem;
+      for (const dx of [-len * 0.02, len * 0.02]) {
+        ctx.beginPath();
+        ctx.moveTo(dx, -len * 0.14); ctx.lineTo(dx + len * 0.03, 0); ctx.lineTo(dx, len * 0.14); ctx.lineTo(dx - len * 0.03, 0); ctx.closePath();
+        ctx.fill();
+      }
+
+      // chuôi + cán
+      ctx.fillStyle = hilt;
+      ctx.fillRect(-len * 0.22, -len * 0.045, len * 0.36, len * 0.09);
+      ctx.fillStyle = rgba(guard, 0.65);
+      ctx.fillRect(-len * 0.26, -len * 0.075, len * 0.06, len * 0.15);
+      ctx.fillStyle = gem;
+      ctx.beginPath(); ctx.arc(-len * 0.23, 0, len * 0.04, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(len * 0.12, 0, len * 0.035, 0, Math.PI * 2); ctx.fill();
+
+      // mấu đuôi và gót
+      ctx.fillStyle = guard;
+      ctx.fillRect(len * 0.18, -len * 0.06, len * 0.12, len * 0.12);
+      ctx.fillStyle = pal.goldDark || pal.gold || '#8c6a2d';
+      ctx.fillRect(len * 0.26, -len * 0.04, len * 0.08, len * 0.08);
+
       ctx.restore();
     },
 

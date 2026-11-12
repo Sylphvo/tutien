@@ -169,15 +169,47 @@ window.TT = window.TT || {};
       const ground = TT.Env.makeBiomeGround(S, B.ground, 1000 + Math.floor(Math.random() * 1e6));
       this.baseScene('bicanh', D.world.bicanhSizeM, 0, { ground, dark: B.dark, fog: B.fog, ambient: B.ambient, biome: biomeId });
       const avoid = [[c, c, 6 * PPM]];
+      if (B.fortress) {
+        const half = 16 * PPM;
+        const addFortressProp = (kind, x, y, clearanceM) => {
+          this.addProp(kind, x, y, 0);
+          avoid.push([x, y, clearanceM * PPM]);
+        };
+        const sideOffsets = [-12, -6, 0, 6, 12];
+        const gateSideOffsets = [-12, -6, 6, 12];
+        for (const offset of gateSideOffsets)
+          addFortressProp('fortress_wall', c + offset * PPM, c - half, 4.5);
+        for (const offset of sideOffsets)
+          addFortressProp('fortress_wall', c + offset * PPM, c + half, 4.5);
+        for (const offset of sideOffsets) {
+          addFortressProp('fortress_wall_v', c - half, c + offset * PPM, 4.5);
+          addFortressProp('fortress_wall_v', c + half, c + offset * PPM, 4.5);
+        }
+        addFortressProp('fortress_gate', c, c - half, 7);
+        for (const dx of [-half, half]) for (const dy of [-half, half])
+          addFortressProp('fortress_tower', c + dx, c + dy, 4);
+        addFortressProp('fortress_keep', c, c + 8 * PPM, 5.5);
+      }
+      const pickBiomeSpot = radius => {
+        if (!B.fortress) return this.freeSpot(S, radius, avoid);
+        const extent = 11 * PPM - radius;
+        for (let tries = 0; tries < 90; tries++) {
+          const x = U.rand(c - extent, c + extent), y = U.rand(c - extent, c + extent);
+          if (avoid.some(([ax, ay, ar]) => Math.hypot(x - ax, y - ay) < ar + radius)) continue;
+          if (this.scene.props.some(prop => prop.env && Math.hypot(x - prop.x, y - prop.y) < radius + 26)) continue;
+          return [x, y];
+        }
+        return null;
+      };
       for (let i = 0; i < B.propCount; i++) {
         const kind = U.weighted(B.props, x => x[1])[0];
-        const spot = this.freeSpot(S, 30, avoid);
+        const spot = pickBiomeSpot(30);
         if (spot) this.addProp(kind, spot[0], spot[1], 0);
       }
       const G = B.gather;
       const place = (kind, n, extra) => {
         for (let i = 0; i < n; i++) {
-          const spot = this.freeSpot(S, 40, avoid);
+          const spot = pickBiomeSpot(40);
           if (spot) this.addProp(kind, spot[0], spot[1], 0, Object.assign({ interact: 'gather' }, extra));
         }
       };
@@ -185,7 +217,7 @@ window.TT = window.TT || {};
       place('ore', G.ore, { variant: B.oreVariant, label: 'Khai thác khoáng mạch [E]' });
       place('chest', G.chest, { variant: 'closed', label: 'Mở bảo rương [E]' });
       place('spring', G.spring, { variant: 'full', label: 'Linh Tuyền — hồi phục [E]' });
-      this.addProp('portal', c, c - 2 * PPM, 50, { color: '#4fe0c8', interact: 'exit', label: 'Rời Bí Cảnh [E]', light: '#4fe0c8' });
+      this.addProp('portal', c, c - (B.fortress ? 13 : 2) * PPM, 50, { color: '#4fe0c8', interact: 'exit', label: 'Rời Bí Cảnh [E]', light: '#4fe0c8' });
       this.sortProps();
       this.scene.scale = Math.pow(D.enemyScale, st.globalStage);
       TT.UI.setScene('bicanh', B.name);
@@ -670,7 +702,9 @@ window.TT = window.TT || {};
     spawnEnemy(type, x, y) {
       const sc = this.scene, def = D.enemies[type];
       const s = sc.scale;
-      const e = { type, def, x: U.clamp(x, 20, sc.sizePx - 20), y: U.clamp(y, 20, sc.sizePx - 20), vx: 0, vy: 0,
+      const center = sc.sizePx / 2, limit = sc.biome === 'THANH_LUY' ? 12 * PPM : sc.sizePx / 2 - 20;
+      const min = sc.biome === 'THANH_LUY' ? center - limit : 20, max = sc.biome === 'THANH_LUY' ? center + limit : sc.sizePx - 20;
+      const e = { type, def, x: U.clamp(x, min, max), y: U.clamp(y, min, max), vx: 0, vy: 0,
         hp: def.hp * s, maxHp: def.hp * s, atk: def.atk * s, def_: def.def * s, atkCd: 0, shootCd: U.rand(0.5, def.shootEvery || 1),
         chargeCd: def.chargeEvery || 0, chargeT: 0, telegraph: 0, hitFlash: 0, seed: Math.random() * 10 };
       sc.enemies.push(e);

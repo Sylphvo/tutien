@@ -23,6 +23,22 @@
       for (const id of Object.keys(TT.DATA.biomes)) {
         g.enterBiCanh(id);
         for (let i = 0; i < 20; i++) { g.update(1 / 60); g.render(); }
+        if (id === 'THANH_LUY') {
+          const kinds = g.scene.props.map(p => p.kind);
+          const count = kind => kinds.filter(x => x === kind).length;
+          if (count('fortress_wall') !== 9 || count('fortress_wall_v') !== 10 ||
+              count('fortress_tower') !== 4 || count('fortress_gate') !== 1 || count('fortress_keep') !== 1)
+            throw new Error('Bố cục Cổ Thành thiếu tường, cổng hoặc tháp canh.');
+          const gate = g.scene.props.find(p => p.kind === 'fortress_gate');
+          const gatePass = { x: g.scene.sizePx / 2, y: g.scene.sizePx / 2 - 16 * TT.DATA.world.pixelsPerMeter };
+          g.collideWorld(gatePass, TT.DATA.player.radiusM * TT.DATA.world.pixelsPerMeter);
+          if (Math.hypot(gatePass.x - gate.x, gatePass.y - gate.y) > 1)
+            throw new Error('Lối đi qua cổng thành đang bị chặn.');
+          const outside = g.scene.props.some(p => p.interact === 'gather' &&
+            (Math.abs(p.x - g.scene.sizePx / 2) > 11 * TT.DATA.world.pixelsPerMeter ||
+             Math.abs(p.y - g.scene.sizePx / 2) > 11 * TT.DATA.world.pixelsPerMeter));
+          if (outside) throw new Error('Vật phẩm Cổ Thành xuất hiện ngoài sân trong.');
+        }
         for (const pr of g.scene.props.filter(x => x.interact === 'gather').slice(0, 8)) { g.player.x = pr.x; g.player.y = pr.y + 10; g.gather(pr); }
         // quái của vùng + boss vùng
         const B = TT.DATA.biomes[id];

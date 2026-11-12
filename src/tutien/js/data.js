@@ -273,7 +273,10 @@ window.TT.DATA = {
       desc: 'Vương của Hỏa Diệm Cốc. Cự ma bazan rỉ dung nham, xả 12 khối dung nham và dậm lao tới.' },
     CUU_VI_HO: { name: 'Cửu Vĩ Băng Hồ', ai: 'boss', hp: 1700, atk: 24, def: 4, speedMps: 3.0, radiusM: 1.3, tuvi: 70, linhThach: 140, color: '#eaf6ff', eye: '#bfe6ff', boss: true,
       shootEvery: 2.4, projSpeedMps: 7, ringCount: 16, chargeEvery: 5, chargeSpeedMps: 14, projColor: '#bfe6ff', projSlow: { amount: 0.35, sec: 1.2 },
-      desc: 'Vương của Huyền Băng Động. Hồ ly chín đuôi, xả 16 băng tiễn làm chậm và lướt chớp nhoáng.' }
+      desc: 'Vương của Huyền Băng Động. Hồ ly chín đuôi, xả 16 băng tiễn làm chậm và lướt chớp nhoáng.' },
+    THANH_CHU: { name: 'Trấn Thành Thạch Vương', ai: 'boss', hp: 2300, atk: 28, def: 8, speedMps: 1.8, radiusM: 1.7, tuvi: 85, linhThach: 180, color: '#786b55', eye: '#ffd36a', boss: true,
+      shootEvery: 3.2, projSpeedMps: 5.5, ringCount: 12, chargeEvery: 6.5, chargeSpeedMps: 9, projColor: '#d8b778',
+      desc: 'Thạch tướng trấn giữ Cổ Thành, bắn đá linh khí theo vòng và lao tới nghiền nát kẻ xâm nhập.' }
   },
   // Cửa hàng của Vạn Bảo Thương Nhân: [itemId, giá Linh Thạch]
   shop: [['HOI_HUYET_DAN', 30], ['HOI_LINH_DAN', 25], ['THANH_TAM_DAN', 100], ['TI_LOI_PHU', 180],
@@ -392,7 +395,7 @@ window.TT.DATA = {
     borderTrees: { kind: 'pine', count: 46, innerM: 27, outerM: 31 }
   },
 
-  // ---- Bí Cảnh: 3 vùng ------------------------------------------------------
+  // ---- Bí Cảnh --------------------------------------------------------------
   // props: [kind, trọng số]; gather: số lượng vật phẩm thu thập; loot: [itemId, min, max]
   biomes: {
     LINH_MOC: {
@@ -427,6 +430,17 @@ window.TT.DATA = {
       gather: { herb: 12, ore: 8, chest: 3, spring: 1 },
       herbVariant: 'bangtam', oreVariant: 'bang',
       herbLoot: [['BANG_TAM_HOA', 1, 3], ['LINH_THAO', 0, 1]], oreLoot: [['HUYEN_THIET', 1, 2], ['DINH_HON_CHAU', 0, 1]]
+    },
+    THANH_LUY: {
+      name: 'Cổ Thành Trấn Ma', element: 'Tho', ground: 'thanh_luy', dark: 0.3, fog: '#37352e',
+      desc: 'Phế thành đá giữa hoang mạc, tường thành khép kín, tháp canh cổ và cổng ải dẫn vào sân trong.',
+      ambient: { color: '#e6bf78', vy: [-10, 4], rate: 4 },
+      spawnWeights: { HAC_LANG: 20, DOC_TRUNG: 20, THACH_MA: 45, QUY_HOA: 15 }, boss: 'THANH_CHU',
+      props: [['fortress_rubble', 18], ['ruin_pillar', 12], ['ruin_stele', 10], ['rock_moss', 16], ['stone_lantern', 8]],
+      propCount: 54, fortress: true,
+      gather: { herb: 10, ore: 12, chest: 4, spring: 1 },
+      herbVariant: 'linhthao', oreVariant: 'moc',
+      herbLoot: [['LINH_THAO', 1, 3], ['HUYEN_THIET', 0, 1]], oreLoot: [['HUYEN_THIET', 2, 4], ['DINH_HON_CHAU', 0, 1]]
     }
   },
   chestRarityWeights: { PhapKhi: 0, LinhKhi: 45, BaoKhi: 35, TienKhi: 15, ThanKhi: 5 },
@@ -474,7 +488,11 @@ window.TT.DATA = {
       pal: { blade: '#9aa0b0', bladeShade: '#3a3e4a', hilt: '#1a1a22', gold: '#6a6a7a', goldHi: '#b0b0c0', goldDark: '#2a2a34' } },
     { id: 'KIM_O', name: 'Kim Ô Thần Kiếm', price: 7000, realm: 3, shape: 'broad',
       desc: 'Thần kiếm vàng rực mang hỏa tinh Kim Ô, chỉ bậc Nguyên Anh mới cầm nổi.',
-      pal: { blade: '#fff4c8', bladeShade: '#e0a83a', hilt: '#7a1a1a', gold: '#ffd23f', goldHi: '#fff2a8', goldDark: '#a0660e' } }
+      pal: { blade: '#fff4c8', bladeShade: '#e0a83a', hilt: '#7a1a1a', gold: '#ffd23f', goldHi: '#fff2a8', goldDark: '#a0660e' } },
+    { id: 'NHAT_DIEM', name: 'Nhật Diệm Thần Kiếm', price: 9000, realm: 3, shape: 'solar_flame',
+      desc: 'Thần kiếm hắc kim khảm Nhật Luân, lưỡi kiếm uốn như hỏa diệm và tỏa linh quang vàng rực.',
+      pal: { blade: '#201b18', bladeShade: '#62513b', hilt: '#211b18', gold: '#d99a25', goldHi: '#fff2a6',
+        goldDark: '#624018', accent: '#ffb52e', gem: '#fff3a0' } }
   ],
 
   startingKit: {

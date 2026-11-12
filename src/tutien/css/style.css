@@ -181,7 +181,7 @@ button { font-family: inherit; }
 
 /* ---------- Chọn Bí Cảnh & Y Phục ---------- */
 .bsel { padding: 12px; }
-.biomes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.biomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .biome { border: 2px solid; padding: 8px; background: rgba(5, 8, 14, 0.6); display: flex; flex-direction: column; gap: 5px; font-size: 13px; line-height: 1.5; }
 .biome canvas { width: 100%; height: auto; border: 1px solid #2a3448; }
 .bname { font-weight: bold; font-size: 15px; font-family: serif; letter-spacing: 1px; }

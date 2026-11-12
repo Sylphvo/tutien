@@ -79,8 +79,65 @@ window.TT = window.TT || {};
   }
 
   // ------------------------------------------------------------ kiếm & tay
+  function solarFlameSword(g, hx, hy, a) {
+    const L = 44, hw = 3.2;
+    g.save(); g.translate(hx, hy); g.rotate(a);
+    shape(g, c => {
+      c.moveTo(-2, -1.6); c.lineTo(-29, -1.3); c.lineTo(-34, 0); c.lineTo(-29, 1.3); c.lineTo(-2, 1.6); c.closePath();
+    }, lin(g, 0, -2, 0, 2, [[0, PAL.goldHi], [0.25, PAL.hilt], [0.8, '#09090a'], [1, PAL.goldDark]]), 0.8);
+    for (let i = 0; i < 3; i++) line(g, [[-7 - i * 4, -1.5], [-9 - i * 4, 1.5]], PAL.gold, 0.8);
+    shape(g, c => { c.moveTo(-32, -1); c.lineTo(-37, 0); c.lineTo(-32, 1); c.closePath(); }, PAL.goldHi, 0);
+    shape(g, c => {
+      c.moveTo(4, -hw * 0.55); c.bezierCurveTo(12, -hw * 1.8, 22, -hw * 1.8, 29, -hw * 1.1);
+      c.bezierCurveTo(34, -hw * 0.8, 39, -hw * 0.45, L, 0);
+      c.bezierCurveTo(35, hw * 0.85, 30, hw * 1.3, 27, hw * 1.4);
+      c.bezierCurveTo(22, hw * 2.7, 18, hw * 3.1, 15, hw * 2.1);
+      c.bezierCurveTo(11, hw * 1.25, 7, hw * 1.1, 4, hw * 0.8); c.closePath();
+    }, lin(g, 0, -hw * 2, 0, hw * 2, [[0, '#e8d39a'], [0.2, PAL.bladeShade], [0.52, PAL.blade], [0.82, '#09090a'], [1, PAL.goldDark]]), 1.1);
+    g.strokeStyle = PAL.goldHi; g.lineWidth = 0.9;
+    g.beginPath(); g.moveTo(5, 2); g.bezierCurveTo(12, 4, 17, 10, 21, 9);
+    g.bezierCurveTo(27, 8, 27, 3, 34, 2); g.lineTo(42, 0); g.stroke();
+    g.strokeStyle = PAL.accent || PAL.gold; g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(5, 0); g.bezierCurveTo(12, -1, 12, -7, 18, -8);
+    g.bezierCurveTo(23, -9, 24, 1, 30, 2); g.lineTo(38, 0); g.stroke();
+
+    for (const side of [-1, 1]) {
+      shape(g, c => {
+        c.moveTo(4, side * 3); c.quadraticCurveTo(-5, side * 5, -12, side * 15);
+        c.quadraticCurveTo(-19, side * 17, -16, side * 9);
+        c.quadraticCurveTo(-14, side * 5, -9, side * 10);
+        c.quadraticCurveTo(-5, side * 2, 4, side * 3); c.closePath();
+      }, lin(g, -17, 0, 3, 0, [[0, PAL.goldDark], [0.45, '#211b15'], [1, PAL.gold]]), 1);
+      line(g, [[-14, side * 11], [-8, side * 6], [1, side * 4]], PAL.goldHi, 0.8);
+    }
+
+    g.strokeStyle = PAL.line; g.lineWidth = 4.2;
+    g.beginPath(); g.arc(2, 0, 6.4, 0, TAU); g.stroke();
+    g.strokeStyle = PAL.gold; g.lineWidth = 2.1;
+    g.beginPath(); g.arc(2, 0, 6.4, 0, TAU); g.stroke();
+    const orb = g.createRadialGradient(0, -1.4, 0.3, 2, 0, 4.6);
+    orb.addColorStop(0, '#ffffff'); orb.addColorStop(0.48, PAL.goldHi);
+    orb.addColorStop(1, PAL.accent || PAL.gold);
+    g.fillStyle = orb; g.beginPath(); g.arc(2, 0, 4.3, 0, TAU); g.fill();
+    shape(g, c => {
+      c.moveTo(-1, -2.2); c.lineTo(0.5, -0.5); c.lineTo(2.4, -2);
+      c.lineTo(1, 0); c.lineTo(3, 2); c.lineTo(0.6, 1);
+      c.lineTo(-1.3, 2.2); c.lineTo(-0.2, 0); c.closePath();
+    }, '#fff8c7', 0);
+    for (const side of [-1, 1]) {
+      g.strokeStyle = PAL.goldHi; g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(-1, side * 7);
+      g.quadraticCurveTo(7, side * 14, 3, side * 20); g.stroke();
+    }
+    g.restore();
+  }
+
   /** Trường kiếm trong toạ độ tay: gốc tại bàn tay, lưỡi theo góc a. */
   function sword(g, hx, hy, a) {
+    if (FEAT.blade === 'solar_flame') {
+      solarFlameSword(g, hx, hy, a);
+      return;
+    }
     const S = TT.Art.swordShape(FEAT.blade);
     const L = 42 * S.len, hw = 2.4 * S.w, hw2 = hw * S.taper, back = S.blunt ? 2 : 5, gh = 6 * S.guard;
     g.save(); g.translate(hx, hy); g.rotate(a);

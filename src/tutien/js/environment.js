@@ -525,6 +525,97 @@ window.TT = window.TT || {};
     g.fillStyle = 'rgba(70,140,80,0.8)'; g.beginPath(); g.ellipse(-12, -74, 9, 4, 0.3, 0, Math.PI * 2); g.fill();
   }
 
+  function drawFortressWall(g) {
+    const stone = { hi: '#b7b09a', mid: '#777463', dark: '#3e403b' };
+    ink(g, c => c.rect(-128, -18, 256, 36), stoneFill(g, -18, 18, stone), 2);
+    for (let x = -112, row = 0; x < 128; x += 32, row++) {
+      stroke(g, [[x, -17], [x, 17]], 'rgba(24,28,27,0.55)', 1.5);
+      if (row % 2 === 0) stroke(g, [[x - 16, 0], [x + 16, 0]], 'rgba(24,28,27,0.45)', 1);
+    }
+    for (let x = -112; x <= 112; x += 32) {
+      ink(g, c => c.rect(x - 11, -34, 22, 18), stoneFill(g, -34, -16, stone), 1.5);
+      ink(g, c => c.rect(x - 13, -36, 26, 4), stone.hi, 1);
+    }
+    stroke(g, [[-126, 19], [126, 19]], 'rgba(20,24,22,0.8)', 2);
+    stroke(g, [[-124, -19], [124, -19]], 'rgba(255,230,170,0.25)', 1);
+  }
+
+  function drawFortressWallVertical(g) {
+    const stone = { hi: '#b7b09a', mid: '#777463', dark: '#3e403b' };
+    ink(g, c => c.rect(-18, -128, 36, 256), stoneFill(g, -128, 128, stone), 2);
+    for (let y = -112, row = 0; y < 128; y += 32, row++) {
+      stroke(g, [[-17, y], [17, y]], 'rgba(24,28,27,0.55)', 1.5);
+      if (row % 2 === 0) stroke(g, [[0, y - 16], [0, y + 16]], 'rgba(24,28,27,0.45)', 1);
+    }
+    for (let y = -112; y <= 112; y += 32) {
+      ink(g, c => c.rect(-34, y - 11, 18, 22), stoneFill(g, y - 11, y + 11, stone), 1.5);
+      ink(g, c => c.rect(-36, y - 13, 4, 26), stone.hi, 1);
+    }
+    stroke(g, [[19, -126], [19, 126]], 'rgba(20,24,22,0.8)', 2);
+    stroke(g, [[-19, -124], [-19, 124]], 'rgba(255,230,170,0.25)', 1);
+  }
+
+  function drawFortressTower(g) {
+    const stone = { hi: '#c4b998', mid: '#827a64', dark: '#46463d' };
+    ink(g, c => c.ellipse(0, -3, 47, 22, 0, 0, Math.PI * 2), 'rgba(0,0,0,0.35)', 0);
+    ink(g, c => c.rect(-36, -72, 72, 64), stoneFill(g, -72, -8, stone), 2);
+    for (let x = -24; x <= 24; x += 16) {
+      ink(g, c => c.rect(x - 5, -92, 10, 22), stoneFill(g, -92, -70, stone), 1.5);
+      ink(g, c => c.rect(x - 7, -94, 14, 4), stone.hi, 1);
+    }
+    ink(g, c => c.rect(-41, -14, 82, 9), stone.hi, 1.5);
+    for (const x of [-20, 0, 20]) {
+      ink(g, c => c.rect(x - 4, -52, 8, 18), '#252820', 1);
+      stroke(g, [[x, -52], [x, -34]], GOLD_DK, 1);
+    }
+    ink(g, c => c.rect(-30, -7, 60, 7), stoneFill(g, -7, 0, stone), 1.5);
+  }
+
+  function drawFortressGate(g) {
+    const stone = { hi: '#c9bd9b', mid: '#82765c', dark: '#403d34' };
+    for (const side of [-1, 1]) {
+      const x = side * 96;
+      ink(g, c => c.rect(x - 38, -118, 76, 118), stoneFill(g, -118, 0, stone), 2);
+      for (let y = -100; y < -18; y += 28) stroke(g, [[x - 36, y], [x + 36, y]], 'rgba(25,27,23,0.55)', 1.5);
+      for (let xx = x - 24; xx <= x + 24; xx += 24) {
+        ink(g, c => c.rect(xx - 7, -140, 14, 24), stoneFill(g, -140, -116, stone), 1.4);
+        ink(g, c => c.rect(xx - 9, -142, 18, 4), stone.hi, 1);
+      }
+    }
+    ink(g, c => {
+      c.moveTo(-62, 0); c.lineTo(-62, -112); c.quadraticCurveTo(-62, -188, 0, -188);
+      c.quadraticCurveTo(62, -188, 62, -112); c.lineTo(62, 0); c.closePath();
+    }, stoneFill(g, -188, 0, stone), 2);
+    ink(g, c => {
+      c.moveTo(-39, 0); c.lineTo(-39, -108); c.quadraticCurveTo(-39, -150, 0, -150);
+      c.quadraticCurveTo(39, -150, 39, -108); c.lineTo(39, 0); c.closePath();
+    }, lin(g, 0, -150, 0, 0, [[0, '#10151a'], [1, '#29251e']]), 2);
+    stroke(g, [[-64, -112], [-62, -170], [0, -192], [62, -170], [64, -112]], GOLD_DK, 2);
+    roof(g, 0, -190, 282, 42, ROOF.slate);
+    plaque(g, 0, -144, 78, 24, '鎮魔關');
+    for (const side of [-1, 1]) {
+      const x = side * 96;
+      ink(g, c => c.rect(x - 5, -52, 10, 20), '#251b16', 1);
+      ink(g, c => c.ellipse(x, -49, 3.5, 6, 0, 0, Math.PI * 2), GOLD, 0.8);
+    }
+  }
+
+  function drawFortressKeep(g) {
+    platform(g, 300, 18, { hi: '#bbb29a', mid: '#786f5b', dark: '#403d34' });
+    drawHall(g, { bw: 240, wh: 78, bays: 3, roof: ROOF.slate, double: true, plaque: '鎮魔城', plaqueW: 112 });
+  }
+
+  function drawFortressRubble(g, v) {
+    const rnd = U.seeded(v * 17 + 22);
+    const stone = { hi: '#aaa48e', mid: '#706d60', dark: '#3f413b' };
+    ink(g, c => c.ellipse(0, -2, 54, 18, 0, 0, Math.PI * 2), 'rgba(0,0,0,0.35)', 0);
+    for (let i = 0; i < 7; i++) {
+      const x = -44 + rnd() * 88, y = -8 - rnd() * 20, w = 12 + rnd() * 18, h = 8 + rnd() * 14;
+      ink(g, c => { c.moveTo(x - w, y); c.lineTo(x - w * 0.7, y - h); c.lineTo(x + w * 0.6, y - h * 0.8); c.lineTo(x + w, y - 2); c.closePath(); }, stoneFill(g, y - h, y, stone), 1.3);
+    }
+    stroke(g, [[-24, -23], [-10, -32], [8, -20]], 'rgba(30,34,30,0.8)', 1.5);
+  }
+
   // ------------------------------------------------------------------ Hỏa Diệm Cốc
   function drawObsidian(g, v) {
     const rnd = U.seeded(v * 13 + 6);
@@ -695,6 +786,13 @@ window.TT = window.TT || {};
     fern: { w: 80, h: 56, ax: 40, ay: 48, draw: drawFern, variants: 3 },
     ruin_pillar: { w: 60, h: 130, ax: 30, ay: 122, draw: drawRuinPillar, col: [C(0, -6, 16)], variants: 3 },
     ruin_stele: { w: 70, h: 100, ax: 35, ay: 94, draw: drawRuinStele, col: [R(-26, -10, 52, 10)] },
+    fortress_wall: { w: 280, h: 100, ax: 140, ay: 50, draw: drawFortressWall, col: [R(-128, -18, 256, 36)], occl: R(-138, -48, 276, 66) },
+    fortress_wall_v: { w: 100, h: 280, ax: 50, ay: 140, draw: drawFortressWallVertical, col: [R(-18, -128, 36, 256)], occl: R(-48, -138, 66, 276) },
+    fortress_tower: { w: 130, h: 160, ax: 65, ay: 154, draw: drawFortressTower, col: [C(0, -8, 34)], occl: R(-58, -150, 116, 130) },
+    fortress_gate: { w: 360, h: 250, ax: 180, ay: 244, draw: drawFortressGate,
+      col: [R(-145, -18, 103, 36), R(42, -18, 103, 36)], occl: R(-175, -232, 350, 190) },
+    fortress_keep: { w: 440, h: 320, ax: 220, ay: 308, draw: drawFortressKeep, col: [R(-150, -45, 300, 45)], occl: R(-200, -290, 400, 250) },
+    fortress_rubble: { w: 120, h: 70, ax: 60, ay: 56, draw: drawFortressRubble, col: [C(0, -8, 30)], variants: 4 },
     // Hỏa Diệm Cốc
     obsidian: { w: 100, h: 110, ax: 50, ay: 104, draw: drawObsidian, col: [C(0, -8, 24)], variants: 3, lights: [[0, -20, 70, 0.3]] },
     fire_crystal: { w: 70, h: 90, ax: 35, ay: 82, draw: drawFireCrystal, col: [C(0, -6, 14)], variants: 3, lights: [[0, -30, 110, 0.8]], glowColor: '#ff7a2a' },
@@ -835,6 +933,34 @@ window.TT = window.TT || {};
           g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const p of pts) g.lineTo(p[0], p[1]); g.stroke();
         }
         glows.push(pts[3]);
+      }
+    } else if (ground === 'thanh_luy') {
+      g.fillStyle = '#37362f'; g.fillRect(0, 0, S, S);
+      scatterPatches(g, S, rnd, ['#514b3d', '#302f2a', '#625a47', '#272a29'], S * S / 2600, 35, 150);
+      const tile = 42;
+      for (let y = 0; y < S; y += tile) {
+        const row = Math.floor(y / tile);
+        const off = row % 2 ? tile / 2 : 0;
+        for (let x = -tile; x < S; x += tile) {
+          const xx = x + off, shade = 76 + Math.floor(rnd() * 26);
+          g.fillStyle = `rgb(${shade},${shade - 2},${shade - 9})`;
+          g.fillRect(xx + 2, y + 2, tile - 4, tile - 4);
+          g.fillStyle = 'rgba(225,205,158,0.08)'; g.fillRect(xx + 3, y + 3, tile - 6, 2);
+          if (rnd() < 0.09) {
+            g.strokeStyle = 'rgba(18,20,19,0.7)'; g.lineWidth = 1.5;
+            g.beginPath(); g.moveTo(xx + 8, y + 9); g.lineTo(xx + 15, y + 17); g.lineTo(xx + 12, y + 26); g.stroke();
+          }
+        }
+      }
+      g.strokeStyle = 'rgba(225,190,120,0.22)'; g.lineWidth = 8;
+      g.strokeRect(S * 0.25, S * 0.25, S * 0.5, S * 0.5);
+      g.strokeStyle = 'rgba(15,18,18,0.5)'; g.lineWidth = 2;
+      g.strokeRect(S * 0.25, S * 0.25, S * 0.5, S * 0.5);
+      pavePath(g, S / 2, S * 0.75, S / 2, S * 0.18, 118, rnd);
+      pavePlaza(g, S / 2, S / 2 + S * 0.1, 190, rnd);
+      for (let i = 0; i < S * S / 1800; i++) {
+        const x = rnd() * S, y = rnd() * S;
+        if (rnd() < 0.55) dot(g, x, y, 1 + rnd() * 2, 'rgba(210,190,140,0.28)');
       }
     } else {
       g.fillStyle = '#6f8aa0'; g.fillRect(0, 0, S, S);
