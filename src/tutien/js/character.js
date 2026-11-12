@@ -1,0 +1,632 @@
+window.TT = window.TT || {};
+
+/**
+ * TT.Character — nhân vật phong cách anime chibi (đầu to ~45% chiều cao, tóc dài bồng bềnh nhiều lọn,
+ * mắt to, áo khoác cổ lông, tay cầm trường kiếm), tô màu cel-shading viền mảnh.
+ * Dựng thành sprite sheet lúc khởi động: 5 hoạt cảnh (idle, walk, dash, cast, hurt) x 3 hướng
+ * (down, up, side; trái = lật side). NPC dùng cùng khung, khác bảng màu và đặc điểm (FEAT).
+ * Lớp linh khí (hào quang, pháp trận, phi bạch, hạt linh khí, ảnh tàn) vẽ lúc chạy.
+ */
+(function (TT) {
+  'use strict';
+  const FW = 128, FH = 168;          // kích thước 1 frame (gấp đôi kích thước hiển thị)
+  const AX = 64, AY = 165;           // điểm neo = giữa hai bàn chân
+  const RENDER_SCALE = 0.5;
+  const FOOT_OFFSET = 12;            // khoảng cách từ tâm va chạm tới bàn chân (px game)
+  const ANIMS = { idle: 4, walk: 6, dash: 2, cast: 3, hurt: 1 };
+  const FPS = { idle: 4, walk: 10, dash: 14, cast: 12, hurt: 1 };
+  const DIRS = ['down', 'up', 'side'];
+  const TAU = Math.PI * 2;
+
+  // Bảng màu mặc định = nhân vật mẫu: tóc ngọc bích, áo khoác lam đậm cổ lông trắng, nơ nâu.
+  const BASE_PAL = {
+    line: '#262030',
+    skin: '#fdeee4', skinShade: '#efcdbd', blush: 'rgba(240,120,120,0.4)',
+    hair: '#9fc2b2', hairMid: '#d6eee2', hairDark: null, hairShine: 'rgba(255,255,255,0.6)',
+    robe: '#41588a', robeShade: '#2b3b62', robeDeep: '#1a2442',
+    inner: '#5274b4', innerDark: '#2e4878',
+    fur: '#f8f8f4', furShade: '#c8ccd8',
+    shirt: '#f4f2ec', shirtShade: '#cdcac4',
+    sash: '#1e1a26', tassel: '#5a3428',
+    legs: '#f6e8de', legsShade: '#dcc6b8',
+    boot: '#2a2a36', bootHi: '#55556a',
+    gold: '#e9b44c', goldHi: '#ffe39a', goldDark: '#9a6a1e',
+    jade: '#4fae94', jadeDark: '#22705d',
+    iris: '#7a4a34',
+    blade: '#eef8ff', bladeShade: '#8fb6d6', hilt: '#3a2a40'
+  };
+  let PAL = BASE_PAL;
+  // Đặc điểm: beard 'long'|'goatee'|'mustache', hat 'daoguan'|'straw', buns, squint, sword, npc, hideEye
+  let FEAT = {};
+
+  // ------------------------------------------------------------ tiện ích vẽ
+  function lin(g, x0, y0, x1, y1, stops) {
+    const gr = g.createLinearGradient(x0, y0, x1, y1);
+    for (const [o, c] of stops) gr.addColorStop(o, c);
+    return gr;
+  }
+  function shape(g, path, fill, lw) {
+    g.beginPath(); path(g);
+    g.fillStyle = fill; g.fill();
+    if (lw !== 0) { g.lineWidth = lw || 1.8; g.strokeStyle = PAL.line; g.stroke(); }
+  }
+  function line(g, pts, color, lw) {
+    g.strokeStyle = color; g.lineWidth = lw;
+    g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+    g.stroke();
+  }
+  function dot(g, x, y, r, c) { g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
+  /** Làm tối màu hex theo hệ số k (0..1). */
+  function darken(hex, k) {
+    const n = parseInt(hex.slice(1), 16);
+    const f = v => Math.max(0, Math.round(v * (1 - k))).toString(16).padStart(2, '0');
+    return '#' + f((n >> 16) & 255) + f((n >> 8) & 255) + f(n & 255);
+  }
+  const hairFill = (g, y0, y1) => lin(g, 0, y0, 0, y1, [[0, PAL.hairMid], [0.35, PAL.hair], [1, PAL.hairDark]]);
+  const coatFill = (g, x0, y0, x1, y1) => lin(g, x0, y0, x1, y1, [[0, PAL.robe], [0.6, PAL.robeShade], [1, PAL.robeDeep]]);
+
+  // ------------------------------------------------------------ tư thế
+  function pose(anim, f) {
+    const a = (f / ANIMS[anim]) * TAU;
+    const p = { bob: 0, leg: 0, swing: 0, sway: 0, hair: 0, lean: 0, cast: 0, hurt: false };
+    if (anim === 'idle') { p.bob = Math.sin(a) * 1.5; p.sway = Math.sin(a) * 1.5; p.hair = Math.sin(a + 1) * 2.5; }
+    else if (anim === 'walk') { p.leg = Math.sin(a); p.bob = -Math.abs(Math.sin(a)) * 3; p.swing = Math.sin(a); p.sway = -Math.sin(a) * 4; p.hair = Math.cos(a) * 3 + 4; }
+    else if (anim === 'dash') { p.lean = 1; p.sway = 10 + f * 3; p.hair = 12 + f * 2; p.bob = -2; }
+    else if (anim === 'cast') { p.cast = [0.55, 1, 0.85][f]; p.hair = 3; p.sway = 2; }
+    else { p.hurt = true; p.lean = -0.6; p.hair = -3; p.sway = -4; }
+    return p;
+  }
+
+  // ------------------------------------------------------------ kiếm & tay
+  /** Trường kiếm trong toạ độ tay: gốc tại bàn tay, lưỡi theo góc a. */
+  function sword(g, hx, hy, a) {
+    g.save(); g.translate(hx, hy); g.rotate(a);
+    shape(g, c => c.rect(-9, -1.8, 9, 3.6), PAL.hilt, 1.1);
+    dot(g, -10, 0, 2.4, PAL.gold);
+    shape(g, c => c.rect(1, -6, 3, 12), lin(g, 0, -6, 0, 6, [[0, PAL.goldHi], [1, PAL.goldDark]]), 1.1);
+    shape(g, c => { c.moveTo(4, -2.4); c.lineTo(37, -1.6); c.lineTo(42, 0); c.lineTo(37, 1.6); c.lineTo(4, 2.4); c.closePath(); },
+      lin(g, 0, -2.4, 0, 2.4, [[0, PAL.blade], [0.55, PAL.blade], [1, PAL.bladeShade]]), 1.2);
+    line(g, [[6, -0.6], [35, -0.4]], 'rgba(255,255,255,0.9)', 0.8);
+    g.restore();
+  }
+
+  /** Tay áo khoác + bàn tay (+ kiếm). rot: góc xoay quanh vai; swordA: góc kiếm trong toạ độ tay. */
+  function arm(g, sx, sy, rot, holdSword, swordWorld, dark) {
+    g.save(); g.translate(sx, sy); g.rotate(rot);
+    if (holdSword) sword(g, 0, 22, swordWorld - rot);
+    shape(g, c => { c.moveTo(-5, -2); c.quadraticCurveTo(-7, 10, -5.5, 19); c.lineTo(5.5, 19); c.quadraticCurveTo(7, 10, 5, -2); c.closePath(); },
+      lin(g, -6, 0, 6, 0, dark ? [[0, PAL.robeShade], [1, PAL.robeDeep]] : [[0, PAL.robe], [1, PAL.robeShade]]), 1.5);
+    for (let i = 0; i < 4; i++) { dot(g, -4.5 + i * 3, 19.5, 2.9, PAL.line); }
+    for (let i = 0; i < 4; i++) { dot(g, -4.5 + i * 3, 19.5, 2.3, dark ? PAL.furShade : PAL.fur); }
+    shape(g, c => c.arc(0, 23, 3.6, 0, TAU), dark ? PAL.skinShade : PAL.skin, 1.2);
+    g.restore();
+  }
+
+  function armRot(p, base, castRot) {
+    if (p.hurt) return base + 0.3;
+    if (p.lean > 0.5) return base + 0.15;
+    if (p.cast) return base + (castRot - base) * p.cast;
+    return base + p.swing * 0.1;
+  }
+
+  /** Góc kiếm (thế giới): thế thủ chĩa xuống; khi vung kiếm (cast) xoay dần lên trời. */
+  function swordAngle(p, rest, raised) { return p.cast ? rest + (raised - rest) * Math.sqrt(p.cast) : rest; }
+
+  // ------------------------------------------------------------ thân dưới
+  function legsFront(g, p, back) {
+    for (const s of [-1, 1]) {
+      const lift = Math.max(0, s < 0 ? p.leg : -p.leg) * 4, x = s * 6;
+      shape(g, c => c.rect(x - 4, -40, 8, 26 - lift), lin(g, x - 4, 0, x + 4, 0, [[0, PAL.legs], [1, PAL.legsShade]]), 1.3);
+      shape(g, c => { c.moveTo(x - 5.5, -17 - lift); c.lineTo(x + 5.5, -17 - lift); c.lineTo(x + 6, -3 - lift); c.quadraticCurveTo(x + 6.5, 1 - lift, x + (back ? 0 : 1), 1 - lift); c.quadraticCurveTo(x - 6.5, 1 - lift, x - 6, -3 - lift); c.closePath(); },
+        lin(g, x - 6, 0, x + 6, 0, [[0, PAL.bootHi], [0.5, PAL.boot], [1, PAL.boot]]), 1.3);
+      line(g, [[x - 5.5, -14 - lift], [x + 5.5, -14 - lift]], PAL.bootHi, 1.4);
+      if (!back) dot(g, x, -8 - lift, 1.4, PAL.gold);
+    }
+  }
+
+  function legsSide(g, p) {
+    for (const [x, lift, dark] of [[-4 - p.leg * 7, Math.max(0, -p.leg) * 4, true], [4 + p.leg * 7, Math.max(0, p.leg) * 4, false]]) {
+      shape(g, c => c.rect(x - 4, -40, 8, 26 - lift), dark ? PAL.legsShade : PAL.legs, 1.3);
+      shape(g, c => { c.moveTo(x - 5, -17 - lift); c.lineTo(x + 4, -17 - lift); c.lineTo(x + 5, -5 - lift); c.quadraticCurveTo(x + 11, -3 - lift, x + 10, 1 - lift); c.lineTo(x - 5, 1 - lift); c.closePath(); },
+        dark ? PAL.boot : lin(g, x - 5, 0, x + 10, 0, [[0, PAL.bootHi], [1, PAL.boot]]), 1.3);
+    }
+  }
+
+  /** Dải ruy băng lam bay sau eo. */
+  function waistRibbons(g, p, sides) {
+    for (const s of sides) {
+      const w = p.sway * 0.8, h = p.hair * 0.6;
+      shape(g, c => { c.moveTo(s * 10, -50); c.quadraticCurveTo(s * 26 - w, -44 + h, s * 34 - w * 1.4, -30 + h); c.lineTo(s * 30 - w * 1.4, -26 + h); c.quadraticCurveTo(s * 22 - w, -40 + h, s * 9, -46); c.closePath(); },
+        lin(g, 0, -50, 0, -26, [[0, PAL.inner], [1, PAL.innerDark]]), 1.3);
+    }
+  }
+
+  function coatBackFront(g, p, fill) {
+    const s = p.sway;
+    shape(g, c => { c.moveTo(-17, -74); c.quadraticCurveTo(-27, -42, -31 + s, -16); c.quadraticCurveTo(s, -9, 31 + s, -16); c.quadraticCurveTo(27, -42, 17, -74); c.closePath(); }, fill, 1.6);
+  }
+
+  function coatPanels(g, p) {
+    const s = p.sway;
+    for (const d of [-1, 1]) {
+      shape(g, c => { c.moveTo(d * 17, -74); c.quadraticCurveTo(d * 25, -42, d * 31 + s, -16); c.lineTo(d * 13 + s * 0.6, -19); c.quadraticCurveTo(d * 11, -46, d * 7, -70); c.closePath(); },
+        d < 0 ? coatFill(g, -31, -74, 0, -16) : coatFill(g, 31, -74, 0, -16), 1.6);
+      line(g, [[d * 7.5, -70], [d * 11.5, -46], [d * 13.5 + s * 0.6, -20]], PAL.inner, 2.2);
+      line(g, [[d * 31 + s, -16], [d * 13 + s * 0.6, -19]], PAL.inner, 2.2);
+    }
+  }
+
+  function shirtFront(g) {
+    shape(g, c => { c.moveTo(-10, -73); c.lineTo(10, -73); c.lineTo(12, -38); c.quadraticCurveTo(0, -34, -12, -38); c.closePath(); },
+      lin(g, 0, -73, 0, -36, [[0, PAL.shirt], [1, PAL.shirtShade]]), 1.4);
+    line(g, [[-11, -40], [11, -40]], PAL.shirtShade, 1.6);
+  }
+
+  /** Cổ lông xù: chuỗi vòng tròn viền mực rồi tô trắng. */
+  function furCollar(g, side) {
+    const pts = [];
+    if (side) for (let i = 0; i < 6; i++) pts.push([-10 + i * 4.4, -76 + Math.sin((i / 5) * Math.PI) * 4]);
+    else for (let i = 0; i < 9; i++) pts.push([-20 + i * 5, -76 + Math.sin((i / 8) * Math.PI) * 9]);
+    for (const [x, y] of pts) dot(g, x, y, 6.2, PAL.line);
+    for (const [x, y] of pts) dot(g, x, y, 5.2, PAL.fur);
+    for (const [x, y] of pts) { g.fillStyle = PAL.furShade; g.beginPath(); g.arc(x, y + 1.6, 3.6, 0.15 * Math.PI, 0.85 * Math.PI); g.fill(); }
+  }
+
+  function bow(g, x, y) {
+    for (const d of [-1, 1]) shape(g, c => { c.moveTo(x, y); c.lineTo(x + d * 7, y - 4); c.lineTo(x + d * 7, y + 4); c.closePath(); }, PAL.tassel, 1.1);
+    for (const d of [-1, 1]) shape(g, c => { c.moveTo(x, y + 1); c.lineTo(x + d * 4, y + 12); c.lineTo(x + d * 1, y + 12); c.closePath(); }, PAL.tassel, 1);
+    dot(g, x, y, 2.4, darken(PAL.tassel, 0.35));
+  }
+
+  // ------------------------------------------------------------ đầu & mặt
+  function head(g, x) {
+    const gr = g.createRadialGradient(x - 8, -112, 6, x, -104, 32);
+    gr.addColorStop(0, PAL.skin); gr.addColorStop(1, PAL.skinShade);
+    shape(g, c => c.ellipse(x, -106, 29, 27, 0, 0, TAU), gr, 1.8);
+  }
+
+  function eye(g, x, y, rx, hurt, mirror) {
+    if (hurt) {
+      const m = mirror ? -1 : 1;
+      g.strokeStyle = PAL.line; g.lineWidth = 2.2;
+      g.beginPath(); g.moveTo(x - 4 * m, y - 4); g.lineTo(x + 3 * m, y); g.lineTo(x - 4 * m, y + 4); g.stroke();
+      return;
+    }
+    if (FEAT.squint) {
+      g.strokeStyle = PAL.line; g.lineWidth = 2.2;
+      g.beginPath(); g.arc(x, y + 2, rx + 0.5, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+      g.strokeStyle = PAL.hairDark; g.lineWidth = 2.4;
+      g.beginPath(); g.moveTo(x - 6, y - 8); g.quadraticCurveTo(x, y - 11, x + 6, y - 8.5); g.stroke();
+      return;
+    }
+    const ry = rx * 1.25;
+    g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(x, y + 0.5, rx + 0.8, ry, 0, 0, TAU); g.fill();
+    g.fillStyle = lin(g, 0, y - ry, 0, y + ry, [[0, darken(PAL.iris, 0.55)], [0.5, PAL.iris], [1, '#c89a6a']]);
+    g.beginPath(); g.ellipse(x + (mirror ? 0.6 : -0.6), y + 1, rx, ry - 0.6, 0, 0, TAU); g.fill();
+    g.fillStyle = darken(PAL.iris, 0.7); g.beginPath(); g.ellipse(x, y + 1.4, rx * 0.45, ry * 0.5, 0, 0, TAU); g.fill();
+    dot(g, x + rx * 0.35, y - ry * 0.35, 1.7, '#ffffff');
+    dot(g, x - rx * 0.35, y + ry * 0.45, 0.9, 'rgba(255,255,255,0.8)');
+    g.strokeStyle = PAL.line; g.lineWidth = 2.6;
+    g.beginPath(); g.moveTo(x - rx - 1.6, y - ry * 0.55); g.quadraticCurveTo(x, y - ry - 2.2, x + rx + 2, y - ry * 0.7); g.stroke();
+    g.lineWidth = 1; g.beginPath(); g.moveTo(x - rx * 0.6, y + ry + 0.6); g.lineTo(x + rx * 0.6, y + ry + 0.6); g.stroke();
+    g.strokeStyle = PAL.hairDark; g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(x - 5, y - ry - 5); g.quadraticCurveTo(x, y - ry - 7, x + 5, y - ry - 5.5); g.stroke();
+  }
+
+  function faceFront(g, p) {
+    eye(g, -11.5, -98, 5.4, p.hurt, true);
+    eye(g, 11.5, -98, 5.4, p.hurt, false);
+    g.fillStyle = PAL.blush;
+    for (const sx of [-18, 18]) { g.beginPath(); g.ellipse(sx, -89, 4.5, 2.2, 0, 0, TAU); g.fill(); }
+    g.strokeStyle = PAL.line; g.lineWidth = 1.3;
+    g.beginPath();
+    if (p.hurt) g.ellipse(0, -85, 2, 2.4, 0, 0, TAU); else g.arc(0, -87, 2.2, Math.PI * 0.2, Math.PI * 0.8);
+    g.stroke();
+  }
+
+  // ------------------------------------------------------------ tóc
+  /** Khối tóc dài phía sau (nhìn trước), nhiều lọn nhọn bay theo gió. */
+  function hairBackLong(g, p) {
+    const s = Math.min(p.hair, 8);
+    shape(g, c => {
+      c.moveTo(-28, -120);
+      c.quadraticCurveTo(-46 - s * 0.6, -96, -44 - s, -62);
+      for (const [x, y] of [[-46 - s * 1.3, -34], [-36 - s, -46], [-34 - s * 1.2, -26], [-26 - s * 0.7, -42], [-20, -48],
+        [20, -48], [26 - s * 0.4, -42], [34 - s * 0.6, -26], [36 - s * 0.5, -46], [46 - s * 0.7, -34]]) c.lineTo(x, y);
+      c.lineTo(44 - s * 0.4, -62);
+      c.quadraticCurveTo(46 - s * 0.2, -96, 28, -120); c.closePath();
+    }, lin(g, 0, -125, 0, -30, [[0, PAL.hair], [1, PAL.hairDark]]), 1.6);
+    // lọn bay rời
+    g.strokeStyle = PAL.line; g.lineWidth = 1.2;
+    for (const [x0, y0, x1, y1, x2, y2] of [[-40, -80, -54 - s, -66, -50 - s * 1.4, -50], [40, -84, 52 - s * 0.5, -70, 54 - s * 0.6, -56]]) {
+      g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x1, y1, x2, y2); g.stroke();
+    }
+  }
+
+  function bangsFront(g, p) {
+    const hide = FEAT.hideEye;
+    shape(g, c => {
+      c.moveTo(-31, -102);
+      c.bezierCurveTo(-34, -134, -14, -140, 0, -140);
+      c.bezierCurveTo(14, -140, 34, -134, 31, -102);
+      const pts = hide
+        ? [[27, -96], [24, -108], [21, -84], [14, -98], [12, -112], [7, -100], [2, -115], [-4, -100], [-9, -114], [-14, -99], [-19, -112], [-25, -97]]
+        : [[27, -96], [24, -108], [19, -97], [13, -112], [8, -99], [2, -115], [-4, -100], [-9, -114], [-14, -99], [-19, -112], [-25, -97]];
+      for (const [x, y] of pts) c.lineTo(x, y);
+      c.closePath();
+    }, hairFill(g, -140, -92), 1.6);
+    for (const d of [-1, 1]) {
+      const s = p.hair * 0.4;
+      shape(g, c => { c.moveTo(d * 25, -112); c.quadraticCurveTo(d * 36, -88, d * 28 + s, -58); c.lineTo(d * 25 + s, -64); c.quadraticCurveTo(d * 28, -86, d * 20, -102); c.closePath(); }, hairFill(g, -112, -58), 1.4);
+    }
+    g.strokeStyle = PAL.hairShine; g.lineWidth = 3;
+    g.beginPath(); g.arc(0, -114, 22, Math.PI * 1.15, Math.PI * 1.4); g.stroke();
+    g.beginPath(); g.arc(0, -114, 22, Math.PI * 1.55, Math.PI * 1.72); g.stroke();
+  }
+
+  function hairBackView(g, p) {
+    const s = p.hair;
+    shape(g, c => c.ellipse(0, -108, 30, 29, 0, 0, TAU), hairFill(g, -138, -80), 1.6);
+    shape(g, c => {
+      c.moveTo(-28, -104); c.quadraticCurveTo(-40 - s * 0.5, -78, -38 - s, -46);
+      for (const [x, y] of [[-30 - s, -34], [-24, -44], [-16 - s * 0.6, -28], [-8, -40], [0 - s * 0.5, -26], [8, -40], [16 - s * 0.4, -28], [24, -44], [30 - s * 0.6, -34]]) c.lineTo(x, y);
+      c.lineTo(38 - s * 0.5, -46); c.quadraticCurveTo(40, -78, 28, -104); c.closePath();
+    }, lin(g, 0, -104, 0, -26, [[0, PAL.hair], [1, PAL.hairDark]]), 1.6);
+    g.strokeStyle = darken(PAL.hairDark, 0.2); g.lineWidth = 1;
+    for (const x of [-16, -6, 6, 16]) { g.beginPath(); g.moveTo(x, -96); g.quadraticCurveTo(x + 3, -70, x - 1, -44); g.stroke(); }
+    g.strokeStyle = PAL.hairShine; g.lineWidth = 3;
+    g.beginPath(); g.arc(0, -112, 22, Math.PI * 1.2, Math.PI * 1.5); g.stroke();
+  }
+
+  // ------------------------------------------------------------ phần trên đầu
+  function ponytail(g, p, x, side) {
+    const s = Math.min(p.hair, 9);
+    const bx = side ? x - 10 : x - 12, by = side ? -134 : -132;
+    shape(g, c => { c.moveTo(bx + 4, by - 2); c.quadraticCurveTo(bx - 24 - s, by - 10, bx - 30 - s * 1.3, by + 20); c.quadraticCurveTo(bx - 32 - s * 1.5, by + 38, bx - 24 - s * 1.6, by + 50); c.quadraticCurveTo(bx - 22 - s, by + 24, bx, by + 6); c.closePath(); },
+      lin(g, bx - 30, by - 10, bx, by + 50, [[0, PAL.hairMid], [0.4, PAL.hair], [1, PAL.hairDark]]), 1.5);
+    g.strokeStyle = PAL.line; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(bx - 14 - s * 0.5, by); g.quadraticCurveTo(bx - 26 - s, by + 14, bx - 26 - s * 1.4, by + 34); g.stroke();
+    // ruy băng lam
+    for (const d of [-1, 1]) shape(g, c => { c.moveTo(bx, by); c.lineTo(bx + d * 8 - 2, by - 8); c.lineTo(bx + d * 9 - 2, by + 3); c.closePath(); }, lin(g, 0, by - 8, 0, by + 3, [[0, PAL.inner], [1, PAL.innerDark]]), 1.2);
+    shape(g, c => { c.moveTo(bx, by + 2); c.quadraticCurveTo(bx - 4 - s * 0.4, by + 14, bx - 2 - s * 0.6, by + 24); c.lineTo(bx + 2 - s * 0.6, by + 22); c.quadraticCurveTo(bx, by + 12, bx + 2, by + 2); c.closePath(); }, PAL.innerDark, 1);
+    dot(g, bx, by, 2.6, PAL.innerDark);
+  }
+
+  function tiara(g, x) {
+    shape(g, c => { c.moveTo(x - 9, -134); c.lineTo(x - 7, -142); c.lineTo(x - 3, -137); c.lineTo(x + 1, -146); c.lineTo(x + 5, -137); c.lineTo(x + 9, -142); c.lineTo(x + 10, -134); c.closePath(); },
+      lin(g, x - 9, -146, x + 9, -134, [[0, PAL.goldHi], [0.5, PAL.gold], [1, PAL.goldDark]]), 1.2);
+    dot(g, x + 1, -138, 1.8, PAL.jade);
+  }
+
+  function ahoge(g, x, s) {
+    shape(g, c => { c.moveTo(x - 2, -138); c.quadraticCurveTo(x - 4, -154, x + 8 + s * 0.3, -158); c.quadraticCurveTo(x + 15 + s * 0.3, -157, x + 13 + s * 0.3, -150); c.quadraticCurveTo(x + 9, -154, x + 4, -150); c.quadraticCurveTo(x + 2, -144, x + 3, -138); c.closePath(); }, hairFill(g, -158, -138), 1.3);
+  }
+
+  function simpleBun(g, x) {
+    shape(g, c => c.ellipse(x, -138, 10, 8, 0, 0, TAU), hairFill(g, -146, -130), 1.4);
+    line(g, [[x - 15, -141], [x + 15, -143]], PAL.goldDark, 3);
+    line(g, [[x - 15, -141], [x + 15, -143]], PAL.goldHi, 1.2);
+    dot(g, x + 16, -143, 2, PAL.jade);
+  }
+
+  function daoguan(g, x) {
+    shape(g, c => { c.moveTo(x - 12, -134); c.lineTo(x - 10, -153); c.quadraticCurveTo(x, -158, x + 10, -153); c.lineTo(x + 12, -134); c.closePath(); },
+      lin(g, x - 12, 0, x + 12, 0, [[0, '#1a1c24'], [0.5, '#3a3e4c'], [1, '#121418']]), 1.5);
+    shape(g, c => c.rect(x - 5, -150, 10, 11), lin(g, 0, -150, 0, -139, [[0, PAL.jade], [1, PAL.jadeDark]]), 1.1);
+    line(g, [[x - 13, -136], [x + 13, -136]], PAL.gold, 1.6);
+    line(g, [[x - 19, -144], [x + 19, -146]], PAL.goldDark, 3);
+    line(g, [[x - 19, -144], [x + 19, -146]], PAL.goldHi, 1.2);
+  }
+
+  function strawHat(g, x) {
+    g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(x, -116, 28, 10, 0, 0, TAU); g.fill();
+    shape(g, c => { c.moveTo(x - 46, -124); c.lineTo(x, -157); c.lineTo(x + 46, -124); c.quadraticCurveTo(x, -114, x - 46, -124); c.closePath(); },
+      lin(g, x - 36, -156, x + 36, -118, [[0, '#ecd08a'], [0.6, '#c09a4a'], [1, '#7a5a24']]), 1.6);
+    g.strokeStyle = 'rgba(90,60,20,0.55)'; g.lineWidth = 1;
+    for (let k = 1; k < 5; k++) { const t = k / 5; g.beginPath(); g.moveTo(x - 46 * t, -157 + 33 * t); g.lineTo(x + 46 * t, -157 + 33 * t); g.stroke(); }
+    line(g, [[x - 22, -120], [x - 12, -84]], '#5a3a1a', 1);
+    line(g, [[x + 22, -120], [x + 12, -84]], '#5a3a1a', 1);
+  }
+
+  function twinBuns(g, x, side) {
+    const pts = side ? [[x - 10, -134], [x + 8, -138]] : [[x - 23, -128], [x + 23, -128]];
+    for (const [bx, by] of pts) {
+      shape(g, c => c.arc(bx, by, 10, 0, TAU), hairFill(g, by - 10, by + 10), 1.4);
+      line(g, [[bx - 8, by + 5], [bx + 8, by + 5]], PAL.inner, 2.4);
+      line(g, [[bx + 3, by + 6], [bx + 7, by + 18]], PAL.inner, 1.8);
+    }
+    const [fx, fy] = side ? [x + 14, -128] : [x + 13, -138];
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * TAU;
+      shape(g, c => c.ellipse(fx + Math.cos(a) * 3, fy + Math.sin(a) * 3, 2.4, 3.6, a + Math.PI / 2, 0, TAU), '#ffc4d8', 0.8);
+    }
+    dot(g, fx, fy, 1.6, PAL.goldHi);
+  }
+
+  /** Phần trên đầu: mũ / búi đôi / búi đơn (NPC) / đuôi ngựa + ruy băng + vương miện + tóc dựng (mặc định). */
+  function topper(g, p, x, side, back) {
+    if (FEAT.hat === 'daoguan') return daoguan(g, x);
+    if (FEAT.hat === 'straw') return strawHat(g, x);
+    if (FEAT.buns) return twinBuns(g, x, side);
+    if (FEAT.npc) return simpleBun(g, x);
+    if (!back) tiara(g, x + 6);
+    ahoge(g, x + 2, p.hair);
+  }
+
+  /** Râu (NPC): nhìn trước hoặc nghiêng. */
+  function beard(g, p, side) {
+    if (!FEAT.beard) return;
+    const fill = lin(g, 0, -90, 0, -52, [[0, PAL.hairMid], [1, PAL.hair]]);
+    const s = p.sway * 0.4;
+    if (!side) {
+      if (FEAT.beard === 'long') shape(g, c => { c.moveTo(-14, -88); c.quadraticCurveTo(-17, -70, -4 + s, -52); c.lineTo(s, -48); c.lineTo(4 + s, -52); c.quadraticCurveTo(17, -70, 14, -88); c.quadraticCurveTo(0, -80, -14, -88); c.closePath(); }, fill, 1.4);
+      else if (FEAT.beard === 'goatee') shape(g, c => { c.moveTo(-6, -83); c.quadraticCurveTo(-4, -74, s, -66); c.quadraticCurveTo(4, -74, 6, -83); c.closePath(); }, fill, 1.2);
+      for (const d of [-1, 1]) shape(g, c => { c.moveTo(0, -89); c.quadraticCurveTo(d * 7, -91, d * 13, -84); c.quadraticCurveTo(d * 7, -87, 0, -87); c.closePath(); }, PAL.hairMid, 1);
+    } else {
+      if (FEAT.beard === 'long') shape(g, c => { c.moveTo(10, -88); c.quadraticCurveTo(8, -70, 14 + s, -52); c.lineTo(20 + s, -54); c.quadraticCurveTo(24, -72, 26, -86); c.closePath(); }, fill, 1.4);
+      else if (FEAT.beard === 'goatee') shape(g, c => { c.moveTo(18, -84); c.quadraticCurveTo(19, -74, 22 + s, -68); c.quadraticCurveTo(25, -76, 25, -84); c.closePath(); }, fill, 1.2);
+      shape(g, c => { c.moveTo(20, -89); c.quadraticCurveTo(26, -90, 29, -84); c.quadraticCurveTo(25, -87, 20, -87); c.closePath(); }, PAL.hairMid, 1);
+    }
+  }
+
+  // ------------------------------------------------------------ góc nhìn
+  function drawFront(g, p) {
+    const holds = FEAT.sword;
+    if (!FEAT.hat && !FEAT.buns && !FEAT.npc) ponytail(g, p, 0, false);
+    hairBackLong(g, p);
+    waistRibbons(g, p, [-1, 1]);
+    coatBackFront(g, p, lin(g, 0, -74, 0, -12, [[0, PAL.robeDeep], [1, darken(PAL.robeDeep, 0.3)]]));
+    legsFront(g, p, false);
+    shirtFront(g);
+    coatPanels(g, p);
+    shape(g, c => c.rect(-4, -84, 8, 10), PAL.skinShade, 1.3);
+    shape(g, c => c.rect(-5.5, -81, 11, 3), PAL.sash, 0);
+    dot(g, 0, -78, 1.5, PAL.gold);
+    furCollar(g, false);
+    bow(g, 0, -63);
+    arm(g, 15, -70, armRot(p, -0.25, -0.6), false, 0, false);
+    arm(g, -15, -70, armRot(p, 0.5, -2.6), holds, swordAngle(p, 2.42, -1.4), false);
+    head(g, 0);
+    faceFront(g, p);
+    beard(g, p, false);
+    bangsFront(g, p);
+    topper(g, p, 0, false, false);
+  }
+
+  function drawBack(g, p) {
+    const holds = FEAT.sword;
+    arm(g, -15, -70, armRot(p, -0.5, -0.5), false, 0, true);
+    arm(g, 15, -70, armRot(p, -0.5, 2.6), holds, swordAngle(p, 0.72, 4.54), true);
+    legsFront(g, p, true);
+    coatBackFront(g, p, coatFill(g, -31, -74, 31, -12));
+    waistRibbons(g, p, [-1, 1]);
+    furCollar(g, false);
+    hairBackView(g, p);
+    if (!FEAT.hat && !FEAT.buns && !FEAT.npc) ponytail(g, p, 0, false);
+    topper(g, p, 0, false, true);
+  }
+
+  function drawSide(g, p) {
+    const s = Math.min(p.hair, 9), w = p.sway, holds = FEAT.sword;
+    // tóc dài bay ra sau
+    shape(g, c => {
+      c.moveTo(-4, -136); c.quadraticCurveTo(-36 - s, -126, -40 - s * 1.2, -92);
+      for (const [x, y] of [[-46 - s * 1.6, -46], [-36 - s * 1.2, -58], [-34 - s * 1.4, -38], [-26 - s, -56], [-18, -72]]) c.lineTo(x, y);
+      c.quadraticCurveTo(-18, -100, -6, -124); c.closePath();
+    }, lin(g, 0, -136, 0, -38, [[0, PAL.hair], [1, PAL.hairDark]]), 1.6);
+    if (!FEAT.hat && !FEAT.buns && !FEAT.npc) ponytail(g, p, -2, true);
+    arm(g, -3, -70, armRot(p, 0.35, 0.35), false, 0, true);
+    waistRibbons(g, p, [-1]);
+    legsSide(g, p);
+    shape(g, c => { c.moveTo(-12, -74); c.quadraticCurveTo(-21, -40, -27 - w, -16); c.quadraticCurveTo(-4, -9, 18 + p.lean * 3, -18); c.quadraticCurveTo(16, -44, 12, -74); c.closePath(); }, coatFill(g, -27, -74, 18, -16), 1.6);
+    shape(g, c => { c.moveTo(7, -72); c.lineTo(12, -72); c.lineTo(16 + p.lean * 3, -20); c.lineTo(11 + p.lean * 2, -22); c.closePath(); }, PAL.shirt, 1.2);
+    line(g, [[12, -72], [17 + p.lean * 3, -19]], PAL.inner, 2.2);
+    line(g, [[-27 - w, -16], [17 + p.lean * 3, -18]], PAL.inner, 2.2);
+    shape(g, c => c.rect(-1, -84, 8, 10), PAL.skinShade, 1.3);
+    furCollar(g, true);
+    bow(g, 12, -63);
+    // đầu & mặt nghiêng
+    const gr = g.createRadialGradient(-2, -112, 6, 3, -104, 32);
+    gr.addColorStop(0, PAL.skin); gr.addColorStop(1, PAL.skinShade);
+    shape(g, c => c.ellipse(3, -106, 27, 27, 0, 0, TAU), gr, 1.8);
+    eye(g, 16, -98, 4.4, p.hurt, false);
+    g.fillStyle = PAL.blush; g.beginPath(); g.ellipse(20, -89, 3.6, 2, 0, 0, TAU); g.fill();
+    line(g, [[24, -86], [27, -86.5]], PAL.line, 1.3);
+    beard(g, p, true);
+    shape(g, c => {
+      c.moveTo(29, -104); c.bezierCurveTo(31, -132, 12, -140, -4, -139);
+      c.bezierCurveTo(-24, -137, -30, -118, -26, -96);
+      c.quadraticCurveTo(-25, -82, -18 - s * 0.4, -70);
+      for (const [x, y] of [[-12, -86], [-6, -96], [2, -98], [7, -112], [12, -100], [17, -114], [21, -102], [25, -110]]) c.lineTo(x, y);
+      c.closePath();
+    }, hairFill(g, -140, -70), 1.6);
+    shape(g, c => { c.moveTo(1, -106); c.quadraticCurveTo(-3, -86, 2 + s * 0.3, -66); c.quadraticCurveTo(6, -86, 7, -104); c.closePath(); }, hairFill(g, -106, -66), 1.3);
+    g.strokeStyle = PAL.hairShine; g.lineWidth = 3;
+    g.beginPath(); g.arc(0, -114, 22, Math.PI * 1.2, Math.PI * 1.5); g.stroke();
+    topper(g, p, -2, true, false);
+    arm(g, 2, -70, armRot(p, -0.4, -2.0), holds, swordAngle(p, 0.64, -1.0), false);
+  }
+
+  function drawFrame(g, dir, anim, f) {
+    const p = pose(anim, f);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.save();
+    if (dir === 'side') g.rotate(p.lean * 0.15);
+    g.translate(0, p.bob);
+    if (dir === 'side') drawSide(g, p); else if (dir === 'up') drawBack(g, p); else drawFront(g, p);
+    g.restore();
+  }
+
+  // ------------------------------------------------------------ sprite sheet
+  const sheets = {};
+  const rows = {};
+  const tintCache = {};
+
+  /** Tạo hình theo id: skin người chơi (D.skins) hoặc NPC (D.npcLooks). */
+  function lookFor(id) {
+    const D = TT.DATA || {};
+    const npc = D.npcLooks && D.npcLooks[id];
+    const s = !npc && (D.skins || []).find(k => k.id === id);
+    const pal = Object.assign({}, BASE_PAL, npc ? npc.pal : (s ? s.pal : {}));
+    if (!pal.hairDark || (npc && !npc.pal.hairDark) || (s && !s.pal.hairDark)) pal.hairDark = darken(pal.hair, 0.38);
+    const feat = npc ? Object.assign({ npc: true, sword: false }, npc.feat) : { sword: true, hideEye: true };
+    return { pal, feat, npc: !!npc };
+  }
+
+  /**
+   * Dựng (và cache) sprite sheet cho 1 skin/NPC (cột = frame, hàng = hoạt cảnh x hướng).
+   * NPC chỉ cần idle + walk (6 hàng đầu, cùng thứ tự hàng với sheet đầy đủ).
+   */
+  function buildSheet(skinId) {
+    skinId = skinId || 'THANH_VAN';
+    if (sheets[skinId]) return sheets[skinId];
+    const look = lookFor(skinId);
+    const keys = [];
+    for (const a in ANIMS) {
+      if (look.npc && a !== 'idle' && a !== 'walk') continue;
+      for (const d of DIRS) keys.push([a, d]);
+    }
+    const maxF = Math.max(...Object.values(ANIMS));
+    const sheet = TT.Art.canvas(FW * maxF, FH * keys.length);
+    const g = sheet.getContext('2d');
+    PAL = look.pal;
+    FEAT = look.feat;
+    keys.forEach(([a, d], r) => {
+      rows[a + '_' + d] = r;
+      for (let f = 0; f < ANIMS[a]; f++) {
+        g.save();
+        g.beginPath(); g.rect(f * FW, r * FH, FW, FH); g.clip();
+        g.translate(f * FW + AX, r * FH + AY);
+        drawFrame(g, d, a, f);
+        g.restore();
+      }
+    });
+    PAL = BASE_PAL;
+    FEAT = {};
+    return (sheets[skinId] = sheet);
+  }
+
+  function tinted(sheet, skinId, color) {
+    const key = skinId + '|' + color;
+    if (tintCache[key]) return tintCache[key];
+    const c = TT.Art.canvas(sheet.width, sheet.height);
+    const g = c.getContext('2d');
+    g.drawImage(sheet, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+    return (tintCache[key] = c);
+  }
+
+  function facing(angle) {
+    const cx = Math.cos(angle);
+    if (Math.abs(cx) >= 0.6) return ['side', cx >= 0 ? 1 : -1];
+    return [Math.sin(angle) > 0 ? 'down' : 'up', 1];
+  }
+
+  /** Chọn frame theo trạng thái. st.cast: tỉ lệ 1→0 còn lại của động tác phóng kiếm. */
+  function pickFrame(aim, t, st) {
+    let anim = 'idle';
+    if (st.hurt) anim = 'hurt';
+    else if (st.dash) anim = 'dash';
+    else if (st.cast > 0) anim = 'cast';
+    else if (st.moving) anim = 'walk';
+    const n = ANIMS[anim];
+    const f = anim === 'cast' ? Math.min(n - 1, Math.floor((1 - st.cast) * n)) : Math.floor(t * FPS[anim]) % n;
+    const [dir, flip] = facing(st.dash && st.dashAngle !== undefined ? st.dashAngle : aim);
+    return { anim, f, dir, flip };
+  }
+
+  function blit(ctx, img, fr, x, y) {
+    const r = rows[fr.anim + '_' + fr.dir];
+    ctx.save();
+    ctx.translate(x, y + FOOT_OFFSET);
+    ctx.scale(fr.flip * RENDER_SCALE, RENDER_SCALE);
+    ctx.drawImage(img, fr.f * FW, r * FH, FW, FH, -AX, -AY, FW, FH);
+    ctx.restore();
+  }
+
+  // ------------------------------------------------------------ lớp linh khí
+  function spiritBack(ctx, x, y, t, st, color, power) {
+    const A = TT.Art;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    A.glow(ctx, x, y - 26, 30 * power, color, 0.16 + Math.sin(t * 2.2) * 0.05);
+    ctx.strokeStyle = A.rgba(color, 0.4); ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 5]); ctx.lineDashOffset = -t * 12;
+    ctx.beginPath(); ctx.ellipse(x, y + FOOT_OFFSET, 18 * power, 6 * power, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    // phi bạch: dải lụa linh khí vắt qua vai, đuôi bay ngược hướng di chuyển
+    const mvx = st.mvx || 0, mvy = st.mvy || 0;
+    const w1 = Math.sin(t * 3.1) * 4, w2 = Math.sin(t * 2.7 + 1.3) * 4;
+    const L = [x - 32 + w1 - mvx * 10, y + 4 + w2 * 0.5 - mvy * 10];
+    const R = [x + 32 - w2 - mvx * 10, y + 4 + w1 * 0.5 - mvy * 10];
+    const path = () => {
+      ctx.beginPath(); ctx.moveTo(L[0], L[1]);
+      ctx.quadraticCurveTo(x - 28, y - 18, x - 14, y - 26);
+      ctx.bezierCurveTo(x - 6, y - 32, x + 6, y - 32, x + 14, y - 26);
+      ctx.quadraticCurveTo(x + 28, y - 18, R[0], R[1]);
+    };
+    path(); ctx.strokeStyle = A.rgba(color, 0.3); ctx.lineWidth = 6; ctx.stroke();
+    path(); ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.restore();
+  }
+
+  function spiritFront(ctx, x, y, t, color, power) {
+    const A = TT.Art;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const n = Math.round(6 + 4 * power);
+    for (let i = 0; i < n; i++) {
+      const ph = (t * 0.55 + i / n) % 1;
+      const px = x + Math.sin(i * 2.39 + t * 1.3) * (12 + (i % 4) * 3);
+      const py = y + 10 - ph * 66;
+      ctx.fillStyle = A.rgba(i % 3 ? color : '#ffffff', Math.sin(ph * Math.PI) * 0.85);
+      ctx.beginPath(); ctx.arc(px, py, 0.9 + (i % 3) * 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+    for (let i = 0; i < 3; i++) {
+      const ph = (t * 0.8 + i / 3) % 1;
+      const bx = x + (i - 1) * 10;
+      ctx.strokeStyle = A.rgba(color, 0.35 * (1 - ph));
+      ctx.lineWidth = 2 * (1 - ph) + 0.5;
+      ctx.beginPath(); ctx.moveTo(bx, y + 6);
+      ctx.quadraticCurveTo(bx + Math.sin(t * 3 + i) * 6, y + 10 + ph * 6, bx + (i - 1) * 6 * ph + Math.sin(t * 2 + i) * 4, y + 12 + ph * 10);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Vẽ nhân vật + lớp linh khí. Trả về frame đã vẽ (để làm ảnh tàn khi lướt).
+   * st: {moving, dash, dashAngle, cast(0..1), hurt, color, realm, mvx, mvy, skin, spirit, ghosts:[{x,y,fr,life,max}]}
+   */
+  function draw(ctx, x, y, aim, t, st) {
+    st = st || {};
+    const skinId = st.skin || 'THANH_VAN';
+    const sheet = buildSheet(skinId);
+    const color = st.color || '#9fe8ff';
+    const power = 1 + (st.realm || 0) * 0.25;
+    const fr = pickFrame(aim, t, st);
+    if (st.ghosts) {
+      for (const gh of st.ghosts) {
+        if (!gh.fr) continue;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = (gh.life / gh.max) * 0.45;
+        blit(ctx, tinted(sheet, skinId, color), gh.fr, gh.x, gh.y);
+        ctx.restore();
+      }
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath(); ctx.ellipse(x, y + FOOT_OFFSET, 17, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    const spirit = st.spirit !== false;
+    if (spirit) spiritBack(ctx, x, y, t, st, color, power);
+    blit(ctx, sheet, fr, x, y);
+    if (st.hurt) { ctx.save(); ctx.globalAlpha = 0.45; blit(ctx, tinted(sheet, skinId, '#ffffff'), fr, x, y); ctx.restore(); }
+    if (spirit) spiritFront(ctx, x, y, t, color, power);
+    return fr;
+  }
+
+  TT.Character = { draw, buildSheet, rows, ANIMS, DIRS, FW, FH, PAL: BASE_PAL };
+  TT.Art.drawPlayer = draw;
+})(window.TT);
