@@ -22,6 +22,8 @@ window.TT = window.TT || {};
       this.quickSlots = D.startingKit.quickSlots.slice();
       this.skin = D.skins[0].id;
       this.ownedSkins = [D.skins[0].id];
+      this.swordSkin = D.swordSkins[0].id;
+      this.ownedSwordSkins = [D.swordSkins[0].id];
       this.hp = 1; this.mp = 1;
       this.stats = null;
     }
@@ -167,7 +169,7 @@ window.TT = window.TT || {};
     toJSON() {
       return { realm: this.realm, stage: this.stage, tuvi: this.tuvi, danDoc: this.danDoc, linhThach: this.linhThach,
         linhVan: this.linhVan, inventory: this.inventory.items, equipment: this.equipment, quickSlots: this.quickSlots,
-        skin: this.skin, ownedSkins: this.ownedSkins };
+        skin: this.skin, ownedSkins: this.ownedSkins, swordSkin: this.swordSkin, ownedSwordSkins: this.ownedSwordSkins };
     }
 
     static fromJSON(o) {
@@ -178,6 +180,8 @@ window.TT = window.TT || {};
       p.quickSlots = o.quickSlots || p.quickSlots;
       if (o.ownedSkins) p.ownedSkins = o.ownedSkins;
       if (o.skin && p.ownedSkins.includes(o.skin)) p.skin = o.skin;
+      if (o.ownedSwordSkins) p.ownedSwordSkins = o.ownedSwordSkins;
+      if (o.swordSkin && p.ownedSwordSkins.includes(o.swordSkin)) p.swordSkin = o.swordSkin;
       p.recompute();
       p.hp = p.stats.maxHp; p.mp = p.stats.maxMp;
       return p;
