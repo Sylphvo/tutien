@@ -454,6 +454,29 @@ window.TT.DATA = {
       pal: { robe: '#5a4486', robeShade: '#3a2a5e', robeDeep: '#22163a', inner: '#d8b4ff', innerDark: '#8a5ac8', hair: '#8a72c0', hairMid: '#e0d0ff', iris: '#a06ae0' } }
   ],
 
+  // ---- Kiếm hình (skin kiếm) -------------------------------------------------
+  // Chỉ đổi ngoại hình: kiếm cầm tay + phi kiếm. Màu hào quang/vệt kiếm vẫn theo hệ của vũ khí.
+  // shape: dáng lưỡi (xem TT.Art.swordShape). pal: blade/bladeShade (lưỡi), hilt (chuôi), gold/goldHi/goldDark (hộ thủ).
+  swordSkins: [
+    { id: 'THANH_PHONG', name: 'Thanh Phong Kiếm', price: 0, realm: 0, shape: 'jian',
+      desc: 'Trường kiếm thép xanh của đệ tử nhập môn, hộ thủ đồng vàng.', pal: {} },
+    { id: 'HAN_BANG', name: 'Hàn Băng Kiếm', price: 900, realm: 0, shape: 'thin',
+      desc: 'Kiếm mảnh rèn từ băng tinh ngàn năm, lưỡi mỏng như lá lúa, hộ thủ bạc.',
+      pal: { blade: '#e6fbff', bladeShade: '#6fc4e8', hilt: '#2a4a6a', gold: '#c8e6f4', goldHi: '#ffffff', goldDark: '#5a8aa8' } },
+    { id: 'XICH_LONG', name: 'Xích Long Kiếm', price: 1800, realm: 1, shape: 'broad',
+      desc: 'Bản kiếm rộng tôi trong hỏa mạch Hỏa Diệm Cốc, lưỡi ánh đỏ như vảy rồng.',
+      pal: { blade: '#ffe2c8', bladeShade: '#e0603a', hilt: '#5a1a14', gold: '#f2b03a', goldHi: '#ffe08a', goldDark: '#8a4a10' } },
+    { id: 'LOI_AM', name: 'Lôi Âm Kiếm', price: 3000, realm: 2, shape: 'jian',
+      desc: 'Lưỡi kiếm tím nhạt hấp thụ lôi kiếp, khẽ vung đã nghe tiếng sấm rền.',
+      pal: { blade: '#f2e8ff', bladeShade: '#9a6ae0', hilt: '#2a1a40', gold: '#b48cff', goldHi: '#e8d8ff', goldDark: '#5a3a8a' } },
+    { id: 'HUYEN_THIET', name: 'Huyền Thiết Trọng Kiếm', price: 4000, realm: 2, shape: 'heavy',
+      desc: 'Trọng kiếm vô phong bằng huyền thiết đen, mũi bằng, nặng tựa núi.',
+      pal: { blade: '#9aa0b0', bladeShade: '#3a3e4a', hilt: '#1a1a22', gold: '#6a6a7a', goldHi: '#b0b0c0', goldDark: '#2a2a34' } },
+    { id: 'KIM_O', name: 'Kim Ô Thần Kiếm', price: 7000, realm: 3, shape: 'broad',
+      desc: 'Thần kiếm vàng rực mang hỏa tinh Kim Ô, chỉ bậc Nguyên Anh mới cầm nổi.',
+      pal: { blade: '#fff4c8', bladeShade: '#e0a83a', hilt: '#7a1a1a', gold: '#ffd23f', goldHi: '#fff2a8', goldDark: '#a0660e' } }
+  ],
+
   startingKit: {
     linhThach: 300,
     items: [['HOI_HUYET_DAN', 5], ['HOI_LINH_DAN', 3], ['TAY_LUYEN_THACH', 10], ['DINH_HON_CHAU', 2], ['THANH_TAM_DAN', 1], ['TI_LOI_PHU', 1]],
