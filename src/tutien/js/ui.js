@@ -642,39 +642,63 @@ window.TT = window.TT || {};
     // ---------- Y Phục (skin)
     renderSkins(body) {
       const st = this.game.state;
-      const cards = D.skins.map(s => {
-        const owned = st.ownedSkins.includes(s.id), on = st.skin === s.id;
-        const lockRealm = st.realm < s.realm;
-        let btn;
-        if (on) btn = '<button class="bigbtn" disabled>Đang Mặc</button>';
-        else if (owned) btn = `<button class="bigbtn sk-wear" data-id="${s.id}">Thay Y Phục</button>`;
-        else if (lockRealm) btn = `<button class="bigbtn" disabled>Cần ${D.realms[s.realm].name}</button>`;
-        else btn = `<button class="bigbtn sk-buy" data-id="${s.id}" ${st.linhThach >= s.price ? '' : 'disabled'}>Mua ◆ ${U.fmt(s.price)}</button>`;
-        return `<div class="skin ${on ? 'on' : ''}"><canvas class="skprev" data-id="${s.id}" width="150" height="150"></canvas>
-          <div class="bname">${esc(s.name)}</div><div class="dim">${esc(s.desc)}</div>${btn}</div>`;
-      }).join('');
-      body.innerHTML = `<div class="bsel"><div class="alc-head">KIẾM CÁC · Y PHỤC <span class="lt">◆ ${U.fmt(st.linhThach)}</span></div><div class="skins">${cards}</div></div>`;
+      // kind: 'outfit' (Y phục) | 'sword' (Kiếm hình). Mỗi loại có danh sách, khoá sở hữu và khoá đang dùng riêng.
+      const KINDS = {
+        outfit: { list: D.skins, owned: 'ownedSkins', cur: 'skin', on: 'Đang Mặc', use: 'Thay Y Phục', done: 'Đã khoác ' },
+        sword: { list: D.swordSkins, owned: 'ownedSwordSkins', cur: 'swordSkin', on: 'Đang Dùng', use: 'Đổi Kiếm', done: 'Đã luyện hóa ' }
+      };
+      const cardsOf = kind => {
+        const K = KINDS[kind];
+        return K.list.map(s => {
+          const owned = st[K.owned].includes(s.id), on = st[K.cur] === s.id;
+          let btn;
+          if (on) btn = `<button class="bigbtn" disabled>${K.on}</button>`;
+          else if (owned) btn = `<button class="bigbtn sk-wear" data-kind="${kind}" data-id="${s.id}">${K.use}</button>`;
+          else if (st.realm < s.realm) btn = `<button class="bigbtn" disabled>Cần ${D.realms[s.realm].name}</button>`;
+          else btn = `<button class="bigbtn sk-buy" data-kind="${kind}" data-id="${s.id}" ${st.linhThach >= s.price ? '' : 'disabled'}>Mua ◆ ${U.fmt(s.price)}</button>`;
+          return `<div class="skin ${on ? 'on' : ''}"><canvas class="skprev" data-kind="${kind}" data-id="${s.id}" width="150" height="150"></canvas>
+            <div class="bname">${esc(s.name)}</div><div class="dim">${esc(s.desc)}</div>${btn}</div>`;
+        }).join('');
+      };
+      body.innerHTML = `<div class="bsel">
+        <div class="alc-head">KIẾM CÁC · Y PHỤC <span class="lt">◆ ${U.fmt(st.linhThach)}</span></div><div class="skins">${cardsOf('outfit')}</div>
+        <div class="alc-head">KIẾM CÁC · KIẾM HÌNH <span class="dim">Đổi dáng kiếm cầm tay và phi kiếm; ánh sáng vẫn theo hệ vũ khí</span></div><div class="skins">${cardsOf('sword')}</div>
+      </div>`;
       const wcol = st.equipment.Weapon ? D.elements.colors[st.equipment.Weapon.element] : '#9fe8ff';
       body.querySelectorAll('.skprev').forEach(cv => {
-        const ctx = cv.getContext('2d');
+        const ctx = cv.getContext('2d'), id = cv.dataset.id;
         ctx.fillStyle = '#121a24'; ctx.fillRect(0, 0, 150, 150);
-        ctx.save(); ctx.scale(1.6, 1.6);
-        TT.Character.draw(ctx, 47, 70, Math.PI / 2, 1.3, { skin: cv.dataset.id, color: wcol, realm: st.realm });
-        ctx.restore();
+        if (cv.dataset.kind === 'outfit') {
+          ctx.save(); ctx.scale(1.6, 1.6);
+          TT.Character.draw(ctx, 47, 70, Math.PI / 2, 1.3, { skin: id, sword: st.swordSkin, color: wcol, realm: st.realm });
+          ctx.restore();
+        } else {
+          // nhân vật cầm kiếm nhìn nghiêng + phi kiếm phóng to bên phải
+          ctx.save(); ctx.scale(1.5, 1.5);
+          TT.Character.draw(ctx, 36, 72, 0, 1.3, { skin: st.skin, sword: id, color: wcol, realm: 0, spirit: false });
+          ctx.restore();
+          ctx.save(); ctx.globalCompositeOperation = 'lighter';
+          TT.Art.glow(ctx, 118, 72, 34, wcol, 0.35);
+          ctx.restore();
+          TT.Art.drawSword(ctx, 118, 72, -Math.PI / 2, 92, wcol, 1, D.swordSkins.find(k => k.id === id));
+        }
       });
       body.querySelectorAll('.sk-buy').forEach(b => {
         b.onclick = () => {
-          const s = D.skins.find(k => k.id === b.dataset.id);
+          const K = KINDS[b.dataset.kind];
+          const s = K.list.find(k => k.id === b.dataset.id);
           this.confirm(`Mua <b>${esc(s.name)}</b> với giá <b>${U.fmt(s.price)}</b> Linh Thạch?`, () => {
-            if (st.linhThach < s.price) return;
-            st.linhThach -= s.price; st.ownedSkins.push(s.id); st.skin = s.id;
+            if (st.linhThach < s.price || st[K.owned].includes(s.id)) return;
+            st.linhThach -= s.price; st[K.owned].push(s.id); st[K.cur] = s.id;
             TT.Save.save(st);
-            this.toast('Đã khoác ' + s.name);
+            this.toast(K.done + s.name);
             this.renderMenu();
           });
         };
       });
-      body.querySelectorAll('.sk-wear').forEach(b => { b.onclick = () => { st.skin = b.dataset.id; TT.Save.save(st); this.renderMenu(); }; });
+      body.querySelectorAll('.sk-wear').forEach(b => {
+        b.onclick = () => { st[KINDS[b.dataset.kind].cur] = b.dataset.id; TT.Save.save(st); this.renderMenu(); };
+      });
     },
 
     // ---------- Động Phủ
