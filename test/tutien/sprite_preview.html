@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="UTF-8"><title>Xem trước nhân vật — Kiếm Tu</title>
+<style>
+  body { margin: 0; background: #1b2530; color: #d6dde8; font-family: "Segoe UI", sans-serif; }
+  .bar { padding: 10px 14px; display: flex; gap: 8px; align-items: center; background: #0f161e; border-bottom: 1px solid #8a6d32; }
+  button { background: #22324a; color: #f1e3b8; border: 1px solid #8a6d32; padding: 6px 12px; cursor: pointer; }
+  h3 { margin: 12px 14px 4px; color: #ffd23f; font-weight: 600; }
+  canvas { display: block; margin: 0 14px; }
+  #sheet { background: repeating-conic-gradient(#2a3644 0 25%, #222c38 0 50%) 0 0 / 16px 16px; max-width: calc(100% - 28px); }
+</style></head>
+<body>
+  <div class="bar">
+    Hệ Ngũ Hành:
+    <button data-c="#F2D46B">Kim</button><button data-c="#4FB3FF">Thủy</button><button data-c="#5BD66A">Mộc</button>
+    <button data-c="#FF5A36">Hỏa</button><button data-c="#C9925A">Thổ</button>
+    · Cảnh giới: <button id="realm">0</button>
+    <button id="dl" style="margin-left:auto">Tải sprite sheet PNG</button>
+  </div>
+  <h3>Hoạt cảnh trong game (kèm lớp linh khí)</h3>
+  <canvas id="live" width="1000" height="230"></canvas>
+  <h3>Sprite sheet (cột = frame · hàng = idle/walk/dash/cast/hurt × down/up/side)</h3>
+  <canvas id="sheet"></canvas>
+<script src="../../src/tutien/js/util.js"></script>
+<script src="../../src/tutien/js/art.js"></script>
+<script src="../../src/tutien/js/character.js"></script>
+<script>
+  const C = TT.Character;
+  const sheet = C.buildSheet();
+  const sc = document.getElementById('sheet');
+  sc.width = sheet.width; sc.height = sheet.height;
+  sc.getContext('2d').drawImage(sheet, 0, 0);
+  let color = '#4FB3FF', realm = 0;
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { color = b.dataset.c; });
+  document.getElementById('realm').onclick = e => { realm = (realm + 1) % 5; e.target.textContent = realm; };
+  document.getElementById('dl').onclick = () => {
+    const a = document.createElement('a');
+    a.download = 'kiemtu_spritesheet.png'; a.href = sheet.toDataURL('image/png'); a.click();
+  };
+  // [nhãn, góc ngắm, trạng thái]
+  const cases = [
+    ['Đứng', Math.PI / 2, {}], ['Đi xuống', Math.PI / 2, { moving: true, mvy: 1 }],
+    ['Đi lên', -Math.PI / 2, { moving: true, mvy: -1 }], ['Đi phải', 0, { moving: true, mvx: 1 }],
+    ['Đi trái', Math.PI, { moving: true, mvx: -1 }], ['Lướt', 0, { dash: true, dashAngle: 0, mvx: 1 }],
+    ['Phóng kiếm', 0, { castLoop: true }], ['Bị đánh', Math.PI / 2, { hurt: true }]
+  ];
+  const lc = document.getElementById('live'), ctx = lc.getContext('2d');
+  const t0 = performance.now();
+  function frame() {
+    const t = (performance.now() - t0) / 1000;
+    ctx.clearRect(0, 0, lc.width, lc.height);
+    cases.forEach(([label, aim, st], i) => {
+      const x = 62 + i * 122, y = 150;
+      const s = Object.assign({ color, realm }, st);
+      if (st.castLoop) s.cast = 1 - (t % 0.6) / 0.25;
+      TT.Character.draw(ctx, x, y, aim, t, s);
+      ctx.fillStyle = '#d6dde8'; ctx.font = '13px Segoe UI'; ctx.textAlign = 'center';
+      ctx.fillText(label, x, 210);
+    });
+    requestAnimationFrame(frame);
+  }
+  frame();
+</script></body></html>
