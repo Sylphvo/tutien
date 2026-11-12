@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thư Viện Nhân Vật — Ngự Kiếm Độ Kiếp</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0d131b; color: #d6dde8; font-family: "Segoe UI", sans-serif; font-size: 14px; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      padding: 10px 16px; background: #0a0f16; border-bottom: 2px solid #8a6d32; }
+    header h1 { margin: 0 14px 0 0; font-family: serif; font-size: 20px; letter-spacing: 3px; color: #ffd23f; }
+    .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+    .grp span { color: #7d8aa0; margin-right: 2px; }
+    button { background: #1a2436; color: #d6dde8; border: 1px solid #3a4862; padding: 4px 10px; cursor: pointer; font-family: inherit; }
+    button.on { color: #ffd23f; border-color: #8a6d32; background: #222d42; }
+    main { padding: 8px 16px 40px; }
+    h2 { font-family: serif; color: #ffd23f; letter-spacing: 2px; border-bottom: 1px solid #2a3448; padding-bottom: 6px; margin: 22px 0 10px; }
+    h2 small { font-family: "Segoe UI", sans-serif; color: #7d8aa0; letter-spacing: 0; font-size: 13px; margin-left: 8px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+    .card { background: linear-gradient(#1b2232, #11161f); border: 1px solid #2f3b52; padding: 10px; }
+    .card.wide { grid-column: 1 / -1; }
+    .card canvas { display: block; width: 100%; height: auto; border: 1px solid #263248; image-rendering: auto; }
+    .name { font-family: serif; font-size: 16px; font-weight: bold; margin: 8px 0 2px; letter-spacing: 1px; }
+    .meta { color: #e0c27a; font-size: 12px; margin-bottom: 4px; }
+    .desc { color: #a8b4c8; font-size: 13px; line-height: 1.5; }
+    .tags { font-size: 12px; color: #7d8aa0; margin-top: 4px; }
+    .labels { display: flex; justify-content: space-around; font-size: 12px; color: #7d8aa0; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>THƯ VIỆN NHÂN VẬT</h1>
+    <div class="grp" id="g-zoom"><span>Phóng to</span></div>
+    <div class="grp" id="g-bg"><span>Nền</span></div>
+    <div class="grp" id="g-elem"><span>Linh khí</span></div>
+    <div class="grp" id="g-realm"><span>Cảnh giới</span></div>
+  </header>
+  <main>
+    <h2>KIẾM TU · HOẠT CẢNH <small>Skin đang chọn, đủ 3 hướng và 5 hoạt cảnh</small></h2>
+    <div class="cards"><div class="card wide"><canvas id="anims"></canvas><div class="labels" id="anim-labels"></div></div></div>
+
+    <h2>KIẾM TU · Y PHỤC <small>Bấm vào thẻ để xem skin đó ở mục Hoạt Cảnh</small></h2>
+    <div class="cards" id="skins"></div>
+
+    <h2>NPC TÔNG MÔN <small>Đứng · Quay lưng · Đi ngang. Tên vàng = NPC có chức năng</small></h2>
+    <div class="cards" id="npcs"></div>
+
+    <h2>YÊU THÚ <small>Chớp trắng = trạng thái trúng đòn</small></h2>
+    <div class="cards" id="enemies"></div>
+  </main>
+
+  <script src="js/util.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/character.js"></script>
+  <script src="js/environment.js"></script>
+  <script src="js/monsters.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const D = TT.DATA, U = TT.util, PPM = D.world.pixelsPerMeter;
+    const opt = { zoom: 2, bg: 'tongmon', color: D.elements.colors.Kim, realm: 0, skin: D.skins[0].id };
+
+    // ---------------------------------------------------------- thanh điều khiển
+    function buttons(id, items, key, onChange) {
+      const g = document.getElementById(id);
+      items.forEach(([label, value]) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.onclick = () => { opt[key] = value; [...g.querySelectorAll('button')].forEach(x => x.classList.toggle('on', x === b)); if (onChange) onChange(); };
+        if (opt[key] === value) b.classList.add('on');
+        g.appendChild(b);
+      });
+    }
+    buttons('g-zoom', [['1x', 1], ['2x', 2], ['3x', 3]], 'zoom', layout);
+    buttons('g-bg', [['Tông Môn', 'tongmon'], ['Linh Mộc', 'linhmoc'], ['Hỏa Diệm', 'hoadiem'], ['Huyền Băng', 'huyenbang'], ['Tối', 'dark']], 'bg');
+    buttons('g-elem', D.elements.order.map(e => [D.elements.names[e], D.elements.colors[e]]), 'color');
+    buttons('g-realm', D.realms.map((r, i) => [r.name, i]), 'realm');
+
+    // ---------------------------------------------------------- nền
+    const bgCache = {};
+    function background(ctx, w, h) {
+      if (opt.bg === 'dark') { ctx.fillStyle = '#121a24'; ctx.fillRect(0, 0, w, h); return; }
+      if (!bgCache[opt.bg]) {
+        bgCache[opt.bg] = opt.bg === 'tongmon'
+          ? TT.Env.makeSectGround(640, { paths: [[0, 300, 640, 300, 140]] }, 3).canvas
+          : TT.Env.makeBiomeGround(640, opt.bg, 3).canvas;
+      }
+      const img = bgCache[opt.bg];
+      ctx.drawImage(img, 0, 100, Math.min(640, w), Math.min(540, h), 0, 0, Math.min(640, w), Math.min(540, h));
+      if (w > 640) ctx.drawImage(img, 0, 100, w - 640, Math.min(540, h), 640, 0, w - 640, Math.min(540, h));
+    }
+
+    // ---------------------------------------------------------- dữ liệu thẻ
+    const ANIM_CASES = [
+      ['Đứng', Math.PI / 2, {}], ['Đi xuống', Math.PI / 2, { moving: true, mvy: 1 }],
+      ['Đi lên', -Math.PI / 2, { moving: true, mvy: -1 }], ['Đi ngang', 0, { moving: true, mvx: 1 }],
+      ['Lướt', 0, { dash: true, dashAngle: 0, mvx: 1 }], ['Phóng kiếm', Math.PI / 2, { castLoop: true }],
+      ['Bị đánh', Math.PI / 2, { hurt: true }]
+    ];
+    const SKIN_POSES = [['Trước', Math.PI / 2, {}], ['Sau', -Math.PI / 2, {}], ['Ngang', 0, { moving: true, mvx: 1 }]];
+    const AI_NAME = { melee: 'Cận chiến', ranged: 'Đánh xa', boss: 'Vương Bí Cảnh' };
+
+    const cards = []; // {canvas, draw(ctx, t)}
+
+    function makeCard(container, html, w, h, drawFn, onClick) {
+      const div = document.createElement('div');
+      div.className = 'card';
+      const cv = document.createElement('canvas');
+      div.appendChild(cv);
+      div.insertAdjacentHTML('beforeend', html);
+      if (onClick) { div.style.cursor = 'pointer'; div.onclick = onClick; }
+      container.appendChild(div);
+      cards.push({ cv, w, h, draw: drawFn });
+      return div;
+    }
+
+    // Hoạt cảnh
+    const animCv = document.getElementById('anims');
+    document.getElementById('anim-labels').innerHTML = ANIM_CASES.map(c => `<span>${c[0]}</span>`).join('');
+    cards.push({ cv: animCv, w: ANIM_CASES.length * 90, h: 120, draw: (ctx, t) => {
+      ANIM_CASES.forEach(([, aim, st], i) => {
+        const s = Object.assign({ color: opt.color, realm: opt.realm, skin: opt.skin }, st);
+        if (st.castLoop) s.cast = 1 - (t % 0.7) / 0.25;
+        TT.Character.draw(ctx, 45 + i * 90, 84, aim, t, s);
+      });
+    } });
+
+    // Y phục
+    const skinWrap = document.getElementById('skins');
+    D.skins.forEach(sk => {
+      const req = sk.realm ? ` · Cần ${D.realms[sk.realm].name}` : '';
+      makeCard(skinWrap,
+        `<div class="name">${U.esc(sk.name)}</div><div class="meta">${sk.price ? '◆ ' + U.fmt(sk.price) + ' Linh Thạch' : 'Miễn phí'}${req}</div><div class="desc">${U.esc(sk.desc)}</div>`,
+        3 * 80, 110,
+        (ctx, t) => SKIN_POSES.forEach(([, aim, st], i) =>
+          TT.Character.draw(ctx, 40 + i * 80, 76, aim, t, Object.assign({ color: opt.color, realm: opt.realm, skin: sk.id }, st))),
+        () => { opt.skin = sk.id; window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    });
+
+    // NPC
+    const npcWrap = document.getElementById('npcs');
+    D.npcs.forEach((n, idx) => {
+      const acts = (n.actions || []).map(a => a[0]).join(', ');
+      makeCard(npcWrap,
+        `<div class="name" style="color:${n.actions ? '#ffd23f' : '#cfe6f0'}">${U.esc(n.title)} · ${U.esc(n.name)}</div>
+         <div class="meta">${acts ? 'Chức năng: ' + U.esc(acts) : (n.path ? 'Đi tuần quanh Tông Môn' : '')}</div>
+         <div class="desc">“${U.esc(n.lines[0])}”</div>`,
+        3 * 80, 110,
+        (ctx, t) => SKIN_POSES.forEach(([, aim, st], i) =>
+          TT.Character.draw(ctx, 40 + i * 80, 76, aim, t + idx, Object.assign({ skin: n.look, spirit: !!n.aura,
+            color: n.aura ? n.aura.color : undefined, realm: n.aura ? n.aura.realm * 0.4 : 0 }, st))));
+    });
+
+    function biomesOf(type) {
+      const names = Object.keys(D.biomes).filter(id => D.biomes[id].spawnWeights[type] || D.biomes[id].boss === type).map(id => D.biomes[id].name);
+      return names.length ? names.join(', ') : '—';
+    }
+
+    // Yêu thú
+    const enemyWrap = document.getElementById('enemies');
+    Object.keys(D.enemies).forEach((type, idx) => {
+      const def = D.enemies[type];
+      const big = def.boss;
+      const r = def.radiusM * PPM, box = TT.Monsters.TYPES[type].box;
+      const w = Math.max(big ? 220 : 150, Math.ceil(box[0] * r) + 24), h = Math.max(90, Math.ceil(box[1] * r) + 18);
+      const e = { type, def, x: w / 2, y: h - 8 - r * 0.75, vx: 1, hp: 1, maxHp: 1, hitFlash: 0, seed: idx * 3.1 };
+      const card = makeCard(enemyWrap,
+        `<div class="name" style="color:${def.eye}">${U.esc(def.name)}</div>
+         <div class="meta">${AI_NAME[def.ai]} · HP ${def.hp} · Công ${def.atk} · Thủ ${def.def} · Tốc ${def.speedMps} m/s</div>
+         <div class="desc">${U.esc(def.desc || '')}</div>
+         <div class="tags">Xuất hiện: ${biomesOf(type)}${def.projSlow ? ' · Đạn làm chậm' : ''}${def.chargeEvery ? ' · Lao húc' : ''}${def.ringCount ? ' · Xả ' + def.ringCount + ' đạn vòng' : ''}</div>
+         <div class="tags">Tu vi ${def.tuvi} · Linh Thạch ${def.linhThach} (nhân theo cảnh giới)</div>`,
+        w, h, (ctx, t) => {
+          e.vx = Math.sin(t * 0.5 + idx) >= 0 ? 1 : -1;
+          e.hitFlash = (t + idx * 0.37) % 2.2 < 0.1 ? 1 : 0;
+          TT.Art.drawEnemy(ctx, e, t, PPM);
+        });
+      if (big) card.classList.add('wide');
+    });
+
+    // ---------------------------------------------------------- vẽ
+    function layout() {
+      for (const c of cards) { c.cv.width = c.w * opt.zoom; c.cv.height = c.h * opt.zoom; }
+    }
+    layout();
+    const t0 = performance.now();
+    function frame() {
+      const t = (performance.now() - t0) / 1000;
+      for (const c of cards) {
+        const ctx = c.cv.getContext('2d');
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        background(ctx, c.cv.width, c.cv.height);
+        ctx.setTransform(opt.zoom, 0, 0, opt.zoom, 0, 0);
+        c.draw(ctx, t);
+      }
+      requestAnimationFrame(frame);
+    }
+    frame();
+  })();
+  </script>
+</body>
+</html>
