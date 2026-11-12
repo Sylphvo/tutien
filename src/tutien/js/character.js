@@ -81,13 +81,18 @@ window.TT = window.TT || {};
   // ------------------------------------------------------------ kiếm & tay
   /** Trường kiếm trong toạ độ tay: gốc tại bàn tay, lưỡi theo góc a. */
   function sword(g, hx, hy, a) {
+    const S = TT.Art.swordShape(FEAT.blade);
+    const L = 42 * S.len, hw = 2.4 * S.w, hw2 = hw * S.taper, back = S.blunt ? 2 : 5, gh = 6 * S.guard;
     g.save(); g.translate(hx, hy); g.rotate(a);
     shape(g, c => c.rect(-9, -1.8, 9, 3.6), PAL.hilt, 1.1);
     dot(g, -10, 0, 2.4, PAL.gold);
-    shape(g, c => c.rect(1, -6, 3, 12), lin(g, 0, -6, 0, 6, [[0, PAL.goldHi], [1, PAL.goldDark]]), 1.1);
-    shape(g, c => { c.moveTo(4, -2.4); c.lineTo(37, -1.6); c.lineTo(42, 0); c.lineTo(37, 1.6); c.lineTo(4, 2.4); c.closePath(); },
-      lin(g, 0, -2.4, 0, 2.4, [[0, PAL.blade], [0.55, PAL.blade], [1, PAL.bladeShade]]), 1.2);
-    line(g, [[6, -0.6], [35, -0.4]], 'rgba(255,255,255,0.9)', 0.8);
+    shape(g, c => c.rect(1, -gh, 3, gh * 2), lin(g, 0, -gh, 0, gh, [[0, PAL.goldHi], [1, PAL.goldDark]]), 1.1);
+    shape(g, c => {
+      c.moveTo(4, -hw); c.lineTo(L - back, -hw2);
+      if (S.blunt) { c.lineTo(L, -hw2 * 0.45); c.lineTo(L, hw2 * 0.45); } else c.lineTo(L, 0);
+      c.lineTo(L - back, hw2); c.lineTo(4, hw); c.closePath();
+    }, lin(g, 0, -hw, 0, hw, [[0, PAL.blade], [0.55, PAL.blade], [1, PAL.bladeShade]]), 1.2);
+    line(g, [[6, -hw * 0.25], [L - 7, -hw2 * 0.25]], 'rgba(255,255,255,0.9)', 0.8);
     g.restore();
   }
 
@@ -464,24 +469,40 @@ window.TT = window.TT || {};
   const tintCache = {};
 
   /** Tạo hình theo id: skin người chơi (D.skins) hoặc NPC (D.npcLooks). */
-  function lookFor(id) {
+  /** Skin kiếm (D.swordSkins) theo id, hoặc undefined. */
+  function swordSkin(id) {
+    const D = TT.DATA || {};
+    return id ? (D.swordSkins || []).find(k => k.id === id) : undefined;
+  }
+
+  function lookFor(id, swordId) {
     const D = TT.DATA || {};
     const npc = D.npcLooks && D.npcLooks[id];
     const s = !npc && (D.skins || []).find(k => k.id === id);
-    const pal = Object.assign({}, BASE_PAL, npc ? npc.pal : (s ? s.pal : {}));
+    const sw = !npc && swordSkin(swordId);
+    const pal = Object.assign({}, BASE_PAL, npc ? npc.pal : (s ? s.pal : {}), sw ? sw.pal : {});
     if (!pal.hairDark || (npc && !npc.pal.hairDark) || (s && !s.pal.hairDark)) pal.hairDark = darken(pal.hair, 0.38);
-    const feat = npc ? Object.assign({ npc: true, sword: false }, npc.feat) : { sword: true, hideEye: true };
+    const feat = npc ? Object.assign({ npc: true, sword: false }, npc.feat) : { sword: true, hideEye: true, blade: sw ? sw.shape : 'jian' };
     return { pal, feat, npc: !!npc };
+  }
+
+  /** Khoá cache sheet: NPC bỏ qua skin kiếm. */
+  function sheetKey(skinId, swordId) {
+    skinId = skinId || 'THANH_VAN';
+    const D = TT.DATA || {};
+    return D.npcLooks && D.npcLooks[skinId] ? skinId : skinId + '|' + (swordId || '');
   }
 
   /**
    * Dựng (và cache) sprite sheet cho 1 skin/NPC (cột = frame, hàng = hoạt cảnh x hướng).
    * NPC chỉ cần idle + walk (6 hàng đầu, cùng thứ tự hàng với sheet đầy đủ).
+   * swordId: skin kiếm (D.swordSkins) cho kiếm cầm tay; bỏ trống = kiếm mặc định.
    */
-  function buildSheet(skinId) {
+  function buildSheet(skinId, swordId) {
     skinId = skinId || 'THANH_VAN';
-    if (sheets[skinId]) return sheets[skinId];
-    const look = lookFor(skinId);
+    const key = sheetKey(skinId, swordId);
+    if (sheets[key]) return sheets[key];
+    const look = lookFor(skinId, swordId);
     const keys = [];
     for (const a in ANIMS) {
       if (look.npc && a !== 'idle' && a !== 'walk') continue;
@@ -504,7 +525,7 @@ window.TT = window.TT || {};
     });
     PAL = BASE_PAL;
     FEAT = {};
-    return (sheets[skinId] = sheet);
+    return (sheets[key] = sheet);
   }
 
   function tinted(sheet, skinId, color) {
@@ -708,12 +729,12 @@ window.TT = window.TT || {};
 
   /**
    * Vẽ nhân vật + lớp linh khí. Trả về frame đã vẽ (để làm ảnh tàn khi lướt).
-   * st: {moving, dash, dashAngle, cast(0..1), hurt, color, realm, mvx, mvy, skin, spirit, ghosts:[{x,y,fr,life,max}]}
+   * st: {moving, dash, dashAngle, cast(0..1), hurt, color, realm, mvx, mvy, skin, sword, spirit, ghosts:[{x,y,fr,life,max}]}
    */
   function draw(ctx, x, y, aim, t, st) {
     st = st || {};
-    const skinId = st.skin || 'THANH_VAN';
-    const sheet = buildSheet(skinId);
+    const skinId = sheetKey(st.skin, st.sword); // dùng làm khoá cache ảnh tô màu
+    const sheet = buildSheet(st.skin, st.sword);
     const color = st.color || '#9fe8ff';
     const power = 1 + (st.realm || 0) * 0.25;
     const fr = pickFrame(aim, t, st);
