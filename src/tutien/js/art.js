@@ -21,6 +21,13 @@ window.TT = window.TT || {};
   }
   function rgba(hex, a) { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
 
+  // Dáng lưỡi kiếm cho skin kiếm (D.swordSkins[].shape).
+  const SWORD_SHAPES = {
+    jian:  { len: 1,    w: 1,    taper: 0.67, guard: 1,    blunt: false }, // trường kiếm thẳng
+    thin:  { len: 1.08, w: 0.72, taper: 0.7,  guard: 0.8,  blunt: false }, // kiếm mảnh
+    broad: { len: 1,    w: 1.4,  taper: 0.85, guard: 1.15, blunt: false }, // bản rộng
+    heavy: { len: 0.95, w: 1.8,  taper: 0.95, guard: 1.3,  blunt: true }   // trọng kiếm mũi bằng
+  };
 
   const Art = {
     canvas, rgba,
@@ -124,27 +131,46 @@ window.TT = window.TT || {};
       ctx.restore();
     },
 
-    /** Phi kiếm phát sáng. */
-    drawSword(ctx, x, y, angle, len, color, alpha) {
+    /**
+     * Thông số dáng lưỡi kiếm (tỉ lệ so với kiếm chuẩn), dùng chung cho kiếm cầm tay và phi kiếm.
+     * len: độ dài, w: bề rộng, taper: độ thon về mũi, guard: cỡ hộ thủ, blunt: mũi bằng.
+     */
+    swordShape(id) {
+      return SWORD_SHAPES[id] || SWORD_SHAPES.jian;
+    },
+
+    /** Phi kiếm phát sáng. skin (tuỳ chọn): phần tử D.swordSkins để đổi dáng và màu. */
+    drawSword(ctx, x, y, angle, len, color, alpha, skin) {
+      const S = Art.swordShape(skin && skin.shape);
+      const pal = (skin && skin.pal) || {};
       ctx.save();
       ctx.translate(x, y); ctx.rotate(angle);
       ctx.globalAlpha = alpha === undefined ? 1 : alpha;
       // lưỡi
-      ctx.fillStyle = '#eaf6ff';
+      const tip = len * (0.15 + 0.4 * S.len), hw = len * 0.07 * S.w, tw = len * 0.05 * S.w;
+      const fill = ctx.createLinearGradient(0, -hw, 0, hw);
+      fill.addColorStop(0, pal.blade || '#eaf6ff'); fill.addColorStop(0.55, pal.blade || '#eaf6ff');
+      fill.addColorStop(1, pal.bladeShade || pal.blade || '#eaf6ff');
+      ctx.fillStyle = fill;
       ctx.beginPath();
-      ctx.moveTo(len * 0.55, 0);
-      ctx.lineTo(len * 0.05, -len * 0.07);
-      ctx.lineTo(-len * 0.15, -len * 0.05);
-      ctx.lineTo(-len * 0.15, len * 0.05);
-      ctx.lineTo(len * 0.05, len * 0.07);
+      if (S.blunt) {
+        ctx.moveTo(tip, -hw * 0.5); ctx.lineTo(tip - len * 0.04, -hw * S.taper);
+        ctx.lineTo(len * 0.05, -hw); ctx.lineTo(-len * 0.15, -tw);
+        ctx.lineTo(-len * 0.15, tw); ctx.lineTo(len * 0.05, hw);
+        ctx.lineTo(tip - len * 0.04, hw * S.taper); ctx.lineTo(tip, hw * 0.5);
+      } else {
+        ctx.moveTo(tip, 0);
+        ctx.lineTo(len * 0.05, -hw); ctx.lineTo(-len * 0.15, -tw);
+        ctx.lineTo(-len * 0.15, tw); ctx.lineTo(len * 0.05, hw);
+      }
       ctx.closePath(); ctx.fill();
       ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
       // đốc kiếm
-      ctx.fillStyle = color;
-      ctx.fillRect(-len * 0.2, -len * 0.13, len * 0.05, len * 0.26);
-      ctx.fillStyle = '#3a2a1a';
+      ctx.fillStyle = pal.gold || color;
+      ctx.fillRect(-len * 0.2, -len * 0.13 * S.guard, len * 0.05, len * 0.26 * S.guard);
+      ctx.fillStyle = pal.hilt || '#3a2a1a';
       ctx.fillRect(-len * 0.42, -len * 0.035, len * 0.22, len * 0.07);
-      ctx.fillStyle = color;
+      ctx.fillStyle = pal.gold || color;
       ctx.beginPath(); ctx.arc(-len * 0.44, 0, len * 0.04, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     },
