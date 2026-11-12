@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ngự Kiếm Độ Kiếp — Tu Tiên 2D Top-down</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="hurt"></div>
+
+  <!-- HUD trên -->
+  <div id="hud-top">
+    <div id="scene-name">ĐỘNG PHỦ</div>
+    <div id="hud-bicanh" class="hidden"><span id="kills"></span></div>
+    <div id="hud-trib" class="hidden">
+      <div class="row"><span id="trib-wave"></span><span id="trib-timer"></span></div>
+      <div id="trib-prog" class="tbar"><i class="fill"></i></div>
+      <div class="row dim"><span id="trib-shield"></span><span id="trib-red"></span></div>
+    </div>
+    <div id="bossbar" class="bar boss hidden"><div class="fill"></div><span class="txt"></span></div>
+  </div>
+  <div id="toasts"></div>
+  <div id="banner"></div>
+
+  <!-- HUD dưới -->
+  <div id="hud-bottom">
+    <div class="bars">
+      <div id="hp" class="bar hp"><div class="fill"></div><span class="txt"></span></div>
+      <div id="mp" class="bar mp"><div class="fill"></div><span class="txt"></span></div>
+      <div id="dd" class="bar dd"><div class="fill"></div><span class="txt"></span></div>
+    </div>
+    <div class="skills">
+      <span id="sk-sword" class="sk">LMB: Ngự Kiếm</span>
+      <span id="sk-dash" class="sk">Space: Lôi Độn</span>
+      <span id="sk-shield" class="sk">RMB: Kiếm Thuẫn</span>
+      <div id="quick"></div>
+      <span class="sk lt">◆ <b id="linhthach">0</b></span>
+      <span class="sk dim">[Tab/I] Túi · [H] Trợ giúp</span>
+    </div>
+    <div id="tv" class="bar tv"><div class="fill"></div><span class="txt"></span></div>
+  </div>
+
+  <!-- Menu chính -->
+  <div id="menu" class="modal hidden">
+    <div class="panel">
+      <div class="tabs">
+        <button class="tab" data-tab="inventory">[NHÂN VẬT &amp; TRANG BỊ]</button>
+        <button class="tab" data-tab="reroll">[TẨY LUYỆN]</button>
+        <button class="tab" data-tab="alchemy">[LUYỆN ĐAN]</button>
+        <button class="tab" data-tab="bicanh">[BÍ CẢNH]</button>
+        <button class="tab" data-tab="skins">[Y PHỤC]</button>
+        <button class="tab" data-tab="shop">[VẠN BẢO CÁC]</button>
+        <button class="tab" data-tab="dongphu">[ĐỘNG PHỦ]</button>
+        <button id="menu-close" class="x">✕</button>
+      </div>
+      <div id="menu-body"></div>
+    </div>
+  </div>
+
+  <!-- Chuẩn bị Độ Kiếp -->
+  <div id="prep" class="modal hidden">
+    <div class="panel prep">
+      <div class="tabs"><span id="prep-title" class="title"></span><button id="prep-close" class="x">✕</button></div>
+      <div id="prep-body"></div>
+      <button id="prep-start" class="bigbtn trib">[ Triệu Hồi Lôi Kiếp — Bắt Đầu! ]</button>
+    </div>
+  </div>
+
+  <!-- Hộp thoại NPC -->
+  <div id="dialog" class="hidden">
+    <canvas id="dlg-portrait" width="140" height="150"></canvas>
+    <div class="dlg-main">
+      <div class="dlg-name"><span id="dlg-title"></span> <b id="dlg-name"></b></div>
+      <div id="dlg-text"></div>
+      <div id="dlg-btns"></div>
+    </div>
+  </div>
+
+  <!-- Xác nhận -->
+  <div id="confirm" class="modal hidden">
+    <div class="panel small">
+      <div id="confirm-msg"></div>
+      <div class="cbtns"><button id="confirm-yes" class="bigbtn">Đồng ý (Enter)</button><button id="confirm-no" class="bigbtn">Hủy (Esc)</button></div>
+    </div>
+  </div>
+
+  <!-- Trợ giúp -->
+  <div id="help" class="modal">
+    <div class="panel small help">
+      <h1>NGỰ KIẾM ĐỘ KIẾP</h1>
+      <div id="help-body">
+        <h3>Điều khiển</h3>
+        <ul>
+          <li><b>WASD / Mũi tên</b>: Di chuyển · <b>Chuột</b>: Ngắm</li>
+          <li><b>Chuột trái (giữ)</b>: Ngự Kiếm — phóng Phi Kiếm, kiếm xuyên mục tiêu rồi bay về</li>
+          <li><b>Chuột phải (giữ)</b>: Kiếm Thuẫn — giảm 50% sát thương, chặn đạn, tốn Linh lực</li>
+          <li><b>Space</b>: Lôi Độn (lướt) · <b>1-4</b>: Dùng Đan Dược · <b>E</b>: Tương tác</li>
+          <li><b>Tab / I</b>: Túi đồ · <b>H</b>: Trợ giúp · <b>Esc</b>: Đóng</li>
+        </ul>
+        <h3>Trong Túi Trữ Vật</h3>
+        <ul>
+          <li>Chuột trái: Trang bị / Dùng · Bấm ô trang bị để tháo</li>
+          <li>Giữ chuột phải 1s lên đồ "?" để Giám Định (50 Linh Lực)</li>
+          <li>Rê chuột lên đan dược + phím 1-4 để gắn Quick-slot · X: Bán</li>
+        </ul>
+        <h3>Lối chơi</h3>
+        <ul>
+          <li><b>Tông Môn</b>: Thiên Kiếm Điện (Động Phủ), Tàng Kinh Các (trợ giúp), Đan Phòng (luyện đan), Kiếm Các (Y Phục), Lôi Đài (Độ Kiếp). Đến gần bấm <b>E</b>.</li>
+          <li>Ra <b>Sơn Môn</b> chọn 1 trong 3 Bí Cảnh: Linh Mộc Lâm, Hỏa Diệm Cốc, Huyền Băng Động. Trảm yêu thú, hái linh thảo, khai khoáng, mở bảo rương, tắm Linh Tuyền.</li>
+          <li>Xếp 5 trang bị theo vòng Tương Sinh <b>Kim → Thủy → Mộc → Hỏa → Thổ</b> để kích hoạt Cộng Hưởng.</li>
+          <li>Tẩy Luyện từ tố, khóa dòng tốt bằng Định Hồn Châu. Linh Vận đầy 100 chắc chắn ra T5.</li>
+          <li>Hậu Kỳ đầy tu vi → đến <b>Lôi Đài</b> Độ Kiếp. Vòng đỏ bám theo 0.5s rồi đứng yên 0.3s — lướt ra ngay!</li>
+          <li>Đan độc làm sét mạnh hơn; dùng Thanh Tâm Đan để giải.</li>
+        </ul>
+      </div>
+      <button id="help-close" class="bigbtn">Bắt Đầu Tu Luyện</button>
+    </div>
+  </div>
+
+  <script src="js/util.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/character.js"></script>
+  <script src="js/environment.js"></script>
+  <script src="js/monsters.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (function () {
+      const game = new TT.Game(document.getElementById('game'));
+      TT.UI.init(game);
+      window.addEventListener('beforeunload', () => TT.Save.save(game.state));
+    })();
+  </script>
+</body>
+</html>
