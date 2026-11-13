@@ -334,6 +334,32 @@
       .cards { grid-template-columns: 1fr; }
       .sec-actions { width: 100%; }
     }
+
+    /* Popup xem nhân vật 360° */
+    .v360 { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center;
+      background: rgba(4, 6, 12, 0.72); backdrop-filter: blur(3px); }
+    .v360[hidden] { display: none; }
+    .v360-box { background: linear-gradient(160deg, #1a1f2b, #0f131b); border: 1px solid #88643a; border-radius: 8px;
+      padding: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); max-width: calc(100vw - 20px); }
+    .v360-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: #ffd23f; }
+    .v360-x { background: none; border: 1px solid #3a4458; color: #cfd8e6; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; }
+    .v360-x:hover { border-color: #ffd23f; color: #ffd23f; }
+    .v360 canvas { display: block; border-radius: 6px; max-width: 100%; height: auto !important; }
+    .v360 canvas.v360-main { cursor: grab; touch-action: none; }
+    .v360 canvas.v360-main.grab { cursor: grabbing; }
+    .v360-body { display: flex; gap: 10px; align-items: flex-start; }
+    .v360-side { display: flex; flex-direction: column; gap: 8px; width: 190px; }
+    .v360-panel { border: 1px solid #2f3b52; border-radius: 6px; padding: 6px; background: rgba(5, 8, 14, 0.55); }
+    .v360-cap { font-size: 11px; letter-spacing: 1px; color: #e0c27a; margin-bottom: 4px; }
+    .v360-name { font-size: 12px; color: #cfd8e6; margin-top: 4px; min-height: 2.6em; line-height: 1.3; }
+    @media (max-width: 680px) { .v360-body { flex-direction: column; } .v360-side { flex-direction: row; width: auto; } }
+    .v360-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: #cfd8e6; }
+    .v360-deg { min-width: 38px; color: #ffd23f; font-weight: bold; font-variant-numeric: tabular-nums; }
+    .v360-bar span { display: inline-flex; gap: 3px; }
+    .v360-bar button { background: #1d2433; border: 1px solid #3a4458; color: #cfd8e6; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .v360-bar button.on { border-color: #ffd23f; color: #ffd23f; }
+    .v360-bar button:disabled { opacity: 0.35; cursor: default; }
+    .v360-hint { margin-top: 6px; font-size: 11px; color: #7d8aa0; }
   </style>
 </head>
 <body>
@@ -765,7 +791,8 @@
 
     const cards = []; // { cv, w, h, draw }
 
-    function makeCard(container, html, w, h, drawFn, onClick) {
+    /** view (tuỳ chọn): hàm trả về { title, draw, npc } để mở popup xem 360° khi bấm thẻ. */
+    function makeCard(container, html, w, h, drawFn, onClick, view) {
       const div = document.createElement('div');
       div.className = 'card';
       const cv = document.createElement('canvas');
@@ -773,12 +800,261 @@
       cv.height = h * opt.zoom;
       div.appendChild(cv);
       div.insertAdjacentHTML('beforeend', html);
-      if (onClick) { div.style.cursor = 'pointer'; div.onclick = onClick; }
+      if (onClick || view) {
+        div.style.cursor = 'pointer';
+        div.onclick = () => { if (onClick) onClick(); if (view) Viewer360.open(view()); };
+        if (view) div.title = 'Bấm để xem 360°';
+      }
       container.appendChild(div);
       const cardObj = { cv, w, h, draw: drawFn, div };
       cards.push(cardObj);
       return div;
     }
+
+    // ---------------------------------------------------------- POPUP XEM NHÂN VẬT 360°
+    // Nhân vật chỉ có 3 góc vẽ sẵn (trước, sau, ngang; trái = lật ngang). Khi xoay, sprite được ép bề ngang
+    // tại điểm chuyển góc (45°, 135°...) rồi nở ra ở góc mới, tạo cảm giác xoay tròn liền mạch.
+    const Viewer360 = (() => {
+      const W = 420, H = 460, SNAP = [['Trước', 0]]; // chỉ giữ nút quay về mặt trước
+      const SW = 190, SH = 196; // khung cận cảnh bên phải
+      const ANIMS = [['Đứng', {}], ['Đi', { moving: true }], ['Vận công', { castLoop: true }]];
+      const root = document.createElement('div');
+      root.className = 'v360';
+      root.hidden = true;
+      root.innerHTML = `
+        <div class="v360-box" role="dialog" aria-modal="true" aria-labelledby="v360-title">
+          <div class="v360-head"><b id="v360-title"></b><button class="v360-x" aria-label="Đóng">✕</button></div>
+          <div class="v360-body">
+          <canvas class="v360-main" width="${W * 2}" height="${H * 2}" style="width:${W}px;height:${H}px"></canvas>
+          <div class="v360-side">
+            <div class="v360-panel"><div class="v360-cap">THẦN LUÂN</div>
+              <canvas class="v360-halo" width="${SW * 2}" height="${SH * 2}" style="width:${SW}px;height:${SH}px"></canvas>
+              <div class="v360-name v360-halo-name"></div></div>
+            <div class="v360-panel"><div class="v360-cap">VŨ KHÍ</div>
+              <canvas class="v360-weapon" width="${SW * 2}" height="${SH * 2}" style="width:${SW}px;height:${SH}px"></canvas>
+              <div class="v360-name v360-weapon-name"></div></div>
+          </div>
+          </div>
+          <div class="v360-bar">
+            <span class="v360-deg">0°</span>
+            <span class="v360-snap"></span>
+            <span class="v360-anim"></span>
+            <label><input type="checkbox" class="v360-auto"> Tự xoay</label>
+          </div>
+          <div class="v360-hint">Kéo chuột (hoặc vuốt) trái/phải để xoay · Lăn chuột để phóng to · ←/→ xoay 90° · Esc đóng</div>
+        </div>`;
+      document.body.appendChild(root);
+      const cv = root.querySelector('.v360-main'), ctx = cv.getContext('2d');
+      const haloCtx = root.querySelector('.v360-halo').getContext('2d');
+      const weapCtx = root.querySelector('.v360-weapon').getContext('2d');
+      const haloNameEl = root.querySelector('.v360-halo-name'), weapNameEl = root.querySelector('.v360-weapon-name');
+
+      /** Nền khung cận cảnh: tối, có quầng và vòng bệ mờ. */
+      function panelBg(c, col) {
+        c.setTransform(2, 0, 0, 2, 0, 0);
+        const g = c.createRadialGradient(SW / 2, SH / 2, 10, SW / 2, SH / 2, SW * 0.7);
+        g.addColorStop(0, '#1c2433'); g.addColorStop(1, '#0a0e16');
+        c.fillStyle = g; c.fillRect(0, 0, SW, SH);
+        c.save(); c.globalCompositeOperation = 'lighter';
+        TT.Art.glow(c, SW / 2, SH / 2, SW * 0.45, col, 0.22);
+        c.restore();
+      }
+
+      /** Cận cảnh thần luân đang hiển thị trên nhân vật (halo mua, hoặc thần luân đạo pháp mặc định). */
+      function drawHaloPanel(t) {
+        const d = state.draw, col = d.color || '#9fe8ff';
+        const halo = d.haloId && (D.halos || []).find(h => h.id === d.haloId);
+        panelBg(haloCtx, halo ? halo.color : col);
+        const cx = SW / 2, cy = SH / 2;
+        let label;
+        if (halo) {
+          TT.Art.drawHalo(haloCtx, cx, cy, 72, t, halo.id, halo.color);
+          label = halo.name + ((halo.spin || 0) > 0 ? ' · xoay' : ' · đứng yên');
+        } else if (d.spirit !== false && TT.Character.drawDaoWheel) {
+          haloCtx.save(); haloCtx.translate(cx, cy); haloCtx.scale(2.6, 2.6);
+          TT.Character.drawDaoWheel(haloCtx, 0, 0, t, col, d.realm || 0, anim === 2 ? 1 : 0);
+          haloCtx.restore();
+          label = 'Thần Luân Đạo Pháp (mặc định) · theo màu hệ';
+        } else {
+          label = 'Không có thần luân';
+        }
+        if (d.wingsId) label += ' — đang ẩn vì trang bị cánh';
+        if (haloNameEl.textContent !== label) haloNameEl.textContent = label;
+      }
+
+      /** Cận cảnh vũ khí: kiếm đứng dọc, bồng bềnh nhẹ, có quầng sáng. */
+      function drawWeaponPanel(t) {
+        const d = state.draw;
+        const sk = !state.npc && (D.swordSkins.find(s => s.id === d.sword) || D.swordSkins[0]);
+        const col = d.color || '#9fe8ff';
+        const glowCol = sk ? (sk.glowColor || (sk.pal && (sk.pal.gem || sk.pal.gold)) || col) : col;
+        panelBg(weapCtx, glowCol);
+        let label = 'Không cầm vũ khí';
+        if (sk) {
+          const bob = Math.sin(t * 2) * 4;
+          weapCtx.save(); weapCtx.globalCompositeOperation = 'lighter';
+          TT.Art.glow(weapCtx, SW / 2, SH / 2 + bob, 60, glowCol, 0.35);
+          weapCtx.restore();
+          TT.Art.drawSword(weapCtx, SW / 2, SH / 2 + 8 + bob, -Math.PI / 2, 120, col, 1, sk, t);
+          label = sk.name;
+        }
+        if (weapNameEl.textContent !== label) weapNameEl.textContent = label;
+      }
+      const degEl = root.querySelector('.v360-deg'), autoEl = root.querySelector('.v360-auto');
+      let state = null, yaw = 0, vel = 0, zoom = 3, anim = 0, raf = 0, drag = null, target = null, last = 0;
+
+      const snapWrap = root.querySelector('.v360-snap');
+      SNAP.forEach(([label, deg]) => {
+        const b = document.createElement('button'); b.textContent = label;
+        b.onclick = () => { target = nearestTurn(deg); vel = 0; autoEl.checked = false; };
+        snapWrap.appendChild(b);
+      });
+      const animWrap = root.querySelector('.v360-anim');
+      ANIMS.forEach(([label], i) => {
+        const b = document.createElement('button'); b.textContent = label;
+        b.onclick = () => { anim = i; syncAnim(); };
+        animWrap.appendChild(b);
+      });
+      function syncAnim() {
+        [...animWrap.children].forEach((b, i) => {
+          b.classList.toggle('on', i === anim);
+          b.disabled = !!(state && state.npc && i === 2); // NPC không có hoạt cảnh vận công
+        });
+      }
+      // góc gần nhất (theo hướng quay ngắn nhất) tương ứng với deg
+      function nearestTurn(deg) { return yaw + ((((deg - yaw) % 360) + 540) % 360 - 180); }
+
+      const AIMS = [Math.PI / 2, 0, -Math.PI / 2, Math.PI]; // 0 trước, 1 phải, 2 sau, 3 trái
+      const BLEND_FROM = 30;   // từ |lệch| 30° bắt đầu hoà sang góc kề
+      const MIN_SQUASH = 0.74; // bề ngang nhỏ nhất ở góc chéo 45° (trước đây ép gần 0 nên chỉ còn 1 vệt mỏng)
+      /**
+       * yaw (độ, 0 = nhìn thẳng, tăng = quay sang phải) → các lớp cần vẽ.
+       * Góc chéo: ép ngang nhẹ (≥ 74%) và hoà dần giữa 2 góc kề, tại 45° mỗi góc 50%,
+       * nên thân nhân vật vẫn đầy đặn khi đang xoay.
+       */
+      function viewOf(y) {
+        const a = ((y % 360) + 360) % 360;
+        const seg = Math.round(a / 90) % 4;
+        const off = ((a - seg * 90 + 540) % 360) - 180;    // lệch so với tâm góc, -45..45
+        const k = Math.abs(off) / 45;
+        const squash = 1 - (1 - MIN_SQUASH) * k * k;
+        let w = Math.max(0, Math.min(1, (Math.abs(off) - BLEND_FROM) / (45 - BLEND_FROM)));
+        w = w * w * (3 - 2 * w) * 0.5;                     // smoothstep, tối đa 0.5 tại 45°
+        const next = (seg + (off >= 0 ? 1 : 3)) % 4;
+        const layers = [{ aim: AIMS[seg], alpha: 1 - w }];
+        if (w > 0.001) layers.push({ aim: AIMS[next], alpha: w });
+        return { aim: AIMS[seg], squash, layers };
+      }
+      // vẽ từng góc ra canvas phụ rồi hoà, để hiệu ứng phát sáng ('lighter') không bị cộng gấp đôi
+      const layerCv = [document.createElement('canvas'), document.createElement('canvas')];
+      const mixCv = document.createElement('canvas');
+      [...layerCv, mixCv].forEach(c => { c.width = W * 2; c.height = H * 2; });
+
+      function frame(now) {
+        raf = requestAnimationFrame(frame);
+        const dt = Math.min(0.05, (now - last) / 1000 || 0); last = now;
+        const t = now / 1000;
+        if (!drag) {
+          if (target !== null) {
+            yaw += (target - yaw) * Math.min(1, dt * 10);
+            if (Math.abs(target - yaw) < 0.3) { yaw = target; target = null; }
+          } else if (autoEl.checked) yaw += 40 * dt;
+          else { yaw += vel * dt; vel *= Math.pow(0.04, dt); if (Math.abs(vel) < 2) vel = 0; }
+        }
+        const { squash, layers } = viewOf(yaw);
+        const deg = Math.round(((yaw % 360) + 360) % 360);
+        degEl.textContent = deg + '°';
+        [...snapWrap.children].forEach((b, i) => b.classList.toggle('on', Math.round(deg / 90) % 4 === i));
+
+        ctx.setTransform(2, 0, 0, 2, 0, 0);
+        background(ctx, W, H);
+        ctx.fillStyle = 'rgba(6,10,18,0.35)'; ctx.fillRect(0, 0, W, H);
+        // bệ đá + la bàn hướng nhìn dưới chân
+        const cx = W / 2, cy = H * 0.74;
+        ctx.save(); ctx.translate(cx, cy); ctx.scale(1, 0.32);
+        ctx.strokeStyle = 'rgba(160,220,255,0.35)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, 110, 0, Math.PI * 2); ctx.stroke();
+        // chấm vàng = hướng mặt nhân vật (0° hướng về người xem, 90° sang phải)
+        const fa = yaw * Math.PI / 180;
+        ctx.fillStyle = 'rgba(255,210,63,0.85)';
+        ctx.beginPath(); ctx.arc(Math.sin(fa) * 110, Math.cos(fa) * 110, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        layers.forEach((L, i) => {
+          const s = Object.assign({}, state.draw, ANIMS[anim][1]);
+          if (s.castLoop) s.cast = 1 - (t % 0.7) / 0.25;
+          if (s.moving) { s.mvx = Math.cos(L.aim); s.mvy = Math.sin(L.aim); }
+          const lc = layerCv[i].getContext('2d');
+          lc.setTransform(1, 0, 0, 1, 0, 0);
+          lc.clearRect(0, 0, W * 2, H * 2);
+          lc.setTransform(2 * zoom * squash, 0, 0, 2 * zoom, 2 * cx, 2 * cy);
+          TT.Character.draw(lc, 0, -12, L.aim, t, s); // y=-12: bàn chân (FOOT_OFFSET) chạm tâm bệ
+        });
+        // nội suy đúng (1-w)·A + w·B: chỗ hai góc cùng che vẫn đục 100%, tại 45° hai bên đối xứng nên không bị giật
+        const mc = mixCv.getContext('2d');
+        mc.setTransform(1, 0, 0, 1, 0, 0);
+        mc.globalCompositeOperation = 'source-over'; mc.globalAlpha = 1;
+        mc.clearRect(0, 0, W * 2, H * 2);
+        layers.forEach((L, i) => {
+          mc.globalCompositeOperation = i ? 'lighter' : 'source-over';
+          mc.globalAlpha = L.alpha;
+          mc.drawImage(layerCv[i], 0, 0);
+        });
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(mixCv, 0, 0);
+        ctx.restore();
+
+        drawHaloPanel(t);
+        drawWeaponPanel(t);
+      }
+
+      // kéo chuột / vuốt
+      cv.addEventListener('pointerdown', e => {
+        drag = { x: e.clientX, yaw, lastX: e.clientX, lastT: performance.now() };
+        target = null; vel = 0; autoEl.checked = false;
+        cv.setPointerCapture(e.pointerId); cv.classList.add('grab');
+      });
+      cv.addEventListener('pointermove', e => {
+        if (!drag) return;
+        const now = performance.now();
+        yaw = drag.yaw + (e.clientX - drag.x) * 0.6;   // 600px kéo ≈ 1 vòng
+        const dtm = Math.max(1, now - drag.lastT);
+        vel = (e.clientX - drag.lastX) * 0.6 / (dtm / 1000);
+        drag.lastX = e.clientX; drag.lastT = now;
+      });
+      const endDrag = () => { if (drag) { drag = null; cv.classList.remove('grab'); vel = Math.max(-720, Math.min(720, vel)); } };
+      cv.addEventListener('pointerup', endDrag);
+      cv.addEventListener('pointercancel', endDrag);
+      cv.addEventListener('wheel', e => { e.preventDefault(); zoom = Math.max(1.5, Math.min(5, zoom - Math.sign(e.deltaY) * 0.25)); }, { passive: false });
+
+      function close() { root.hidden = true; cancelAnimationFrame(raf); raf = 0; document.removeEventListener('keydown', onKey); }
+      function onKey(e) {
+        if (e.key === 'Escape') close();
+        else if (e.key === 'ArrowRight') { target = nearestTurn(Math.round((target ?? yaw) / 90) * 90 + 90); autoEl.checked = false; }
+        else if (e.key === 'ArrowLeft') { target = nearestTurn(Math.round((target ?? yaw) / 90) * 90 - 90); autoEl.checked = false; }
+      }
+      root.querySelector('.v360-x').onclick = close;
+      root.addEventListener('click', e => { if (e.target === root) close(); });
+
+      /** st: { title, draw: {...trạng thái cho Character.draw}, npc } */
+      function open(st) {
+        state = st; yaw = 0; vel = 0; target = null; zoom = 3; anim = 0;
+        root.querySelector('#v360-title').textContent = st.title || 'Nhân vật';
+        syncAnim();
+        root.hidden = false;
+        document.addEventListener('keydown', onKey);
+        if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
+        root.querySelector('.v360-x').focus();
+      }
+      return { open, close };
+    })();
+
+    /** Trạng thái vẽ nhân vật hiện tại (y phục, kiếm, ngoại trang đang chọn), ghi đè bằng extra. */
+    const curLook = extra => Object.assign({
+      color: opt.color, sectColor: previewColor(), realm: opt.realm, skin: opt.skin, sword: opt.sword,
+      haloId: opt.haloId, wingsId: opt.wingsId, eyeId: opt.eyeId
+    }, extra);
 
     // ---------------------------------------------------------- 1. HOẠT CẢNH
     const animCv = document.getElementById('anims');
@@ -793,6 +1069,9 @@
         TT.Character.draw(ctx, 45 + i * 90, 84, aim, t, s);
       });
     } });
+    animCv.style.cursor = 'pointer';
+    animCv.title = 'Bấm để xem 360°';
+    animCv.addEventListener('click', () => Viewer360.open({ title: 'Nhân vật hiện tại', draw: curLook({ avatarSkin: opt.avatarSkin }) }));
 
     // ---------------------------------------------------------- 2. Y PHỤC
     const skinWrap = document.getElementById('skins');
@@ -815,7 +1094,8 @@
             }
           }
           if (opt.tab === 'all') window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
+        },
+        () => ({ title: sk.name, draw: curLook({ skin: sk.id, realm: Math.max(opt.realm, sk.realm || 0) }) }));
     });
 
     // ---------------------------------------------------------- MỤC: THẦN DỰC & THẦN LUÂN
@@ -836,7 +1116,9 @@
             opt.haloId = h.id;
             opt.color = h.color;
             if (h.realm && opt.realm < h.realm) opt.realm = h.realm;
-          }
+          },
+          // bỏ cánh khi xem halo, vì có cánh thì halo bị ẩn
+          () => ({ title: h.name, draw: curLook({ haloId: h.id, wingsId: null, color: h.color }) })
         );
       });
       if (D.wings) {
@@ -854,7 +1136,8 @@
             () => {
               opt.wingsId = w.id;
               if (w.realm && opt.realm < w.realm) opt.realm = w.realm;
-            }
+            },
+            () => ({ title: w.name, draw: curLook({ wingsId: w.id }) })
           );
         });
       }
@@ -865,28 +1148,31 @@
     if (eyesWrap && D.eyes) {
       D.eyes.forEach(eye => {
         makeCard(eyesWrap,
-          `<div class="card-head"><div class="name">👁️ ${U.esc(eye.name)}</div></div>
-           <div class="meta">Lưới: Cột ${eye.col + 1}, Hàng ${eye.row + 1} (eyes_grid.jpg)</div>
+          `<div class="card-head"><div class="name" style="color:${eye.color || '#e0e6f0'}">👁️ ${U.esc(eye.name)}</div></div>
+           <div class="meta">Kiểu đồng tử: ${U.esc(eye.style || 'plain')}${eye.third ? ' · Thiên Nhãn trên trán' : ''}</div>
            <div class="desc">${U.esc(eye.desc)}</div>`,
           190, 110,
           (ctx, t) => {
-            // Khung phóng to chi tiết cặp mắt bên trái
+            // Khung phóng to cặp mắt bên trái
             ctx.save();
-            ctx.fillStyle = 'rgba(8, 12, 20, 0.7)';
-            ctx.fillRect(8, 18, 68, 68);
-            ctx.strokeStyle = '#283246';
-            ctx.strokeRect(8, 18, 68, 68);
-            TT.Art.drawEyes(ctx, 42, 52, 56, 26, eye, t, false);
+            ctx.fillStyle = 'rgba(8, 12, 20, 0.78)';
+            ctx.fillRect(6, 14, 84, 64);
+            ctx.strokeStyle = TT.Art.rgba(eye.color || '#9fe8ff', 0.45);
+            ctx.strokeRect(6.5, 14.5, 83, 63);
+            ctx.beginPath(); ctx.rect(6, 14, 84, 64); ctx.clip();
+            TT.Character.drawEyeIcon(ctx, 48, 50, 76, eye, t);
             ctx.restore();
 
-            // Nhân vật đeo mắt bên phải
-            TT.Character.draw(ctx, 136, 82, { x: 136, y: 150 }, t, {
-              skin: opt.skin, sword: opt.sword, eyeId: eye, realm: 1
+            // Nhân vật quay mặt ra trước, lần lượt nhìn thẳng và nhìn nghiêng để thấy mắt ở cả hai hướng
+            const look = Math.floor(t / 2.5) % 2 === 0 ? Math.PI / 2 : (Math.floor(t / 5) % 2 ? Math.PI : 0);
+            TT.Character.draw(ctx, 140, 84, look, t, {
+              skin: opt.skin, sword: opt.sword, eyeId: eye, color: eye.color, realm: 1
             });
           },
           () => {
             opt.eyeId = eye.id;
-          }
+          },
+          () => ({ title: eye.name, draw: curLook({ eyeId: eye.id }) })
         );
       });
     }
@@ -914,13 +1200,13 @@
     // ---------------------------------------------------------- MỤC: HUY HIỆU & SKILL BAR
     const badgesWrap = document.getElementById('badges-cards');
     if (badgesWrap) {
-      // 1. Huy hiệu Ngũ Đại Tông Môn (clan_badges.jpg)
+      // 1. Huy hiệu Ngũ Đại Tông Môn (clan_badges.png)
       D.sects.forEach(s => {
         const col = s.badge ? s.badge.col : 2, row = s.badge ? s.badge.row : 1;
         makeCard(badgesWrap,
           `<div class="card-head"><div class="name" style="color:${s.color}">🏯 ${U.esc(s.name)} (Huy Hiệu)</div></div>
            <div class="meta">${U.esc(s.alignment)} · ${U.esc(s.discipline)}</div>
-           <div class="desc">Huy hiệu tông môn trấn phái, cắt từ clan_badges.jpg [Cột ${col + 1}, Hàng ${row + 1}].</div>`,
+           <div class="desc">Huy hiệu tông môn trấn phái, cắt từ clan_badges.png [Cột ${col + 1}, Hàng ${row + 1}].</div>`,
           160, 110,
           (ctx, t) => {
             const sp = TT.Art.getClanBadge(col, row);
@@ -931,7 +1217,7 @@
         );
       });
 
-      // 2. Huy hiệu Tứ Đại Gia Tộc (clan_badges.jpg)
+      // 2. Huy hiệu Tứ Đại Gia Tộc (clan_badges.png)
       D.clans.forEach(c => {
         const col = c.badge ? c.badge.col : 0, row = c.badge ? c.badge.row : 0;
         makeCard(badgesWrap,
@@ -948,7 +1234,7 @@
         );
       });
 
-      // 3. Ấn Ký Ngũ Hành Nguyên Tố (ninja_elements.jpg)
+      // 3. Ấn Ký Ngũ Hành Nguyên Tố (ninja_elements.png)
       const elementList = [
         { name: 'Ấn Ký Hỏa Diệm', col: 0, row: 0, color: '#f97316', desc: 'Nguyên tố Chân Hỏa thiêu rụi tà chướng.' },
         { name: 'Ấn Ký Lôi Đình', col: 1, row: 0, color: '#a855f7', desc: 'Nguyên tố Thiên Lôi dẫn điện cuồng nộ.' },
@@ -959,7 +1245,7 @@
       elementList.forEach(el => {
         makeCard(badgesWrap,
           `<div class="card-head"><div class="name" style="color:${el.color}">🌀 ${U.esc(el.name)}</div></div>
-           <div class="meta">Ấn Ký Nguyên Tố (ninja_elements.jpg)</div>
+           <div class="meta">Ấn Ký Nguyên Tố (ninja_elements.png)</div>
            <div class="desc">${U.esc(el.desc)}</div>`,
           160, 110,
           (ctx, t) => {
@@ -971,7 +1257,7 @@
         );
       });
 
-      // 4. Icon Kỹ Năng HUD (skill_icons.jpg)
+      // 4. Icon Kỹ Năng HUD (skill_icons.png)
       const skillShowcase = [
         { name: 'Ngự Kiếm Thuật [LMB]', col: 1, row: 0, desc: 'Phóng phi kiếm xoay tròn xuyên phá hàng ngũ kẻ địch.' },
         { name: 'Lôi Độn Thân Pháp [Space]', col: 3, row: 5, desc: 'Hóa thành tia chớp lướt nhanh né đòn hiểm.' },
@@ -1369,7 +1655,10 @@
         3 * 80, 110,
         (ctx, t) => SKIN_POSES.forEach(([, aim, st], i) =>
           TT.Character.draw(ctx, 40 + i * 80, 76, aim, t + idx, Object.assign({ skin: n.look, spirit: !!n.aura,
-            color: n.aura ? n.aura.color : undefined, sectColor: previewColor(), realm: n.aura ? n.aura.realm * 0.4 : 0 }, st))));
+            color: n.aura ? n.aura.color : undefined, sectColor: previewColor(), realm: n.aura ? n.aura.realm * 0.4 : 0 }, st))),
+        null,
+        () => ({ title: `${n.title} · ${n.name}`, npc: true, draw: { skin: n.look, spirit: !!n.aura,
+          color: n.aura ? n.aura.color : undefined, sectColor: previewColor(), realm: n.aura ? n.aura.realm * 0.4 : 0 } }));
     });
 
     function biomesOf(type) {
