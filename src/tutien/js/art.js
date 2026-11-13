@@ -533,72 +533,72 @@ window.TT = window.TT || {};
   }
 
   function getSkillIcon(col, row, options) {
-    return loadAndCleanSprite('skill_icons.jpg', Object.assign({ rows: 18, cols: 14, row, col, trim: false, tolerance: 35, mode: 'white' }, options));
+    return loadAndCleanSprite('skill_icons.png', Object.assign({ rows: 18, cols: 14, row, col, trim: false, tolerance: 35, mode: 'white' }, options));
   }
 
   function getClanBadge(col, row, options) {
-    return loadAndCleanSprite('clan_badges.jpg', Object.assign({ rows: 2, cols: 5, row, col, trim: true, tolerance: 35, mode: 'white' }, options));
+    return loadAndCleanSprite('clan_badges.png', Object.assign({ rows: 2, cols: 5, row, col, trim: true, tolerance: 35, mode: 'white' }, options));
   }
 
   function getElementBadge(col, row, options) {
-    return loadAndCleanSprite('ninja_elements.jpg', Object.assign({ rows: 2, cols: 5, row, col, trim: true, tolerance: 35, mode: 'white' }, options));
+    return loadAndCleanSprite('ninja_elements.png', Object.assign({ rows: 2, cols: 5, row, col, trim: true, tolerance: 35, mode: 'white' }, options));
   }
 
   function getEyeSprite(col, row, options) {
-    return loadAndCleanSprite('eyes_grid.jpg', Object.assign({ rows: 8, cols: 5, row, col, trim: true, tolerance: 35, mode: 'white' }, options));
+    return loadAndCleanSprite('eyes_grid.png', Object.assign({ rows: 8, cols: 5, row, col, trim: true, tolerance: 35, mode: 'white' }, options));
   }
 
   function getHaloSprite(idOrIndex, options) {
     if (idOrIndex === 'HALO_CRIMSON_SUN' || idOrIndex === 'crimson_sun' || idOrIndex === 0) {
-      return loadAndCleanSprite('halo_crimson_sun.jpg', Object.assign({ tolerance: 35, mode: 'black' }, options));
+      return loadAndCleanSprite('halo_crimson_sun.png', Object.assign({ tolerance: 35, mode: 'black' }, options));
     }
     const idx = typeof idOrIndex === 'number' ? idOrIndex - 1 : parseInt(String(idOrIndex).replace(/[^0-9]/g, ''), 10) - 1 || 0;
     const col = Math.max(0, idx % 3);
     const row = Math.max(0, Math.min(3, Math.floor(idx / 3)));
-    return loadAndCleanSprite('halos_grid.jpg', Object.assign({ rows: 4, cols: 3, row, col, tolerance: 35, mode: 'black' }, options));
+    return loadAndCleanSprite('halos_grid.png', Object.assign({ rows: 4, cols: 3, row, col, tolerance: 35, mode: 'black' }, options));
   }
 
   function getWingsSprite(idOrIndex, options) {
     const isGolden = idOrIndex === 'WINGS_GOLDEN_DAWN' || idOrIndex === 1 || idOrIndex === 'golden';
     const row = isGolden ? 1 : 0;
-    return loadAndCleanSprite('wings_pair.jpg', Object.assign({ rows: 2, cols: 1, row, col: 0, tolerance: 35, mode: 'black' }, options));
+    return loadAndCleanSprite('wings_pair.png', Object.assign({ rows: 2, cols: 1, row, col: 0, tolerance: 35, mode: 'black' }, options));
   }
 
   const AVATAR_FILES = {
-    AVATAR_URANOS: 'skin_uranos.jpg',
-    AVATAR_COSMIC: 'skin_cosmic.jpg',
-    AVATAR_PRISM: 'skin_prism.jpg',
-    AVATAR_WATER_DRAGON: 'skin_water_dragon.jpg',
-    AVATAR_WHITE_PURPLE: 'skin_white_purple.jpg',
-    AVATAR_CHAOS_TRINITY: 'skin_chaos_trinity.jpg',
-    AVATAR_RIKAMU: 'skin_rikami.jpg',
-    AVATAR_NETHER_EMPRESS: 'skin_nether_empress.jpg',
-    AVATAR_WINGED_SERAPH: 'skin_winged_seraph.jpg'
+    AVATAR_URANOS: 'skin_uranos.png',
+    AVATAR_COSMIC: 'skin_cosmic.png',
+    AVATAR_PRISM: 'skin_prism.png',
+    AVATAR_WATER_DRAGON: 'skin_water_dragon.png',
+    AVATAR_WHITE_PURPLE: 'skin_white_purple.png',
+    AVATAR_CHAOS_TRINITY: 'skin_chaos_trinity.png',
+    AVATAR_RIKAMU: 'skin_rikami.png',
+    AVATAR_NETHER_EMPRESS: 'skin_nether_empress.png',
+    AVATAR_WINGED_SERAPH: 'skin_winged_seraph.png'
   };
 
   function getAvatarSprite(avatarId, options) {
-    const file = AVATAR_FILES[avatarId] || (avatarId && avatarId.endsWith('.jpg') ? avatarId : 'skin_uranos.jpg');
+    const file = AVATAR_FILES[avatarId] || (avatarId && (avatarId.endsWith('.png') || avatarId.endsWith('.jpg')) ? avatarId : 'skin_uranos.png');
     return loadAndCleanSprite(file, Object.assign({ tolerance: 30, mode: 'black' }, options));
   }
 
   const MONSTER_FILES = {
-    CUU_VI_THIEN_HO: 'boss_fox.jpg',
-    LOI_DINH_CU_SA: 'boss_shark.jpg',
-    HAC_AM_CU_HUNG: 'boss_bear.jpg',
-    HAN_BANG_CU_MA: 'boss_golem.jpg',
-    HU_KHONG_AM_LONG: 'boss_void_dragon.jpg',
-    HAC_ANH_TU_THAN: 'shadow_reaper.jpg',
-    HAC_ANH_KIEM_SI: 'shadow_swordsman.jpg',
-    BACH_COT_THICH_KHACH: 'shadow_assassin.jpg',
-    HU_KHONG_U_HON: 'shadow_wraith.jpg',
+    CUU_VI_THIEN_HO: 'boss_fox.png',
+    LOI_DINH_CU_SA: 'boss_shark.png',
+    HAC_AM_CU_HUNG: 'boss_bear.png',
+    HAN_BANG_CU_MA: 'boss_golem.png',
+    HU_KHONG_AM_LONG: 'boss_void_dragon.png',
+    HAC_ANH_TU_THAN: 'shadow_reaper.png',
+    HAC_ANH_KIEM_SI: 'shadow_swordsman.png',
+    BACH_COT_THICH_KHACH: 'shadow_assassin.png',
+    HU_KHONG_U_HON: 'shadow_wraith.png',
     TOA_LIEM_MA_QUAN: 'shadow_chain_lord.png',
-    HAC_DA_THONG_SOAI: 'boss_shadow_general.jpg',
-    MONSTER_SCORPION: 'monster_scorpion.jpg',
-    NHAT_THUC_THAN_CAM: 'boss_solar_eclipse.jpg',
-    BANG_LINH_THAN_THU: 'boss_ice_phoenix.jpg',
-    KIM_SUNG_THIEN_LONG: 'boss_nether_dragon.jpg',
-    MONSTER_LIGHTNING: 'monster_lightning_frost.jpg',
-    MONSTER_FLAME: 'monster_flame_spikes.jpg'
+    HAC_DA_THONG_SOAI: 'boss_shadow_general.png',
+    MONSTER_SCORPION: 'monster_scorpion.png',
+    NHAT_THUC_THAN_CAM: 'boss_solar_eclipse.png',
+    BANG_LINH_THAN_THU: 'boss_ice_phoenix.png',
+    KIM_SUNG_THIEN_LONG: 'boss_nether_dragon.png',
+    MONSTER_LIGHTNING: 'monster_lightning_frost.png',
+    MONSTER_FLAME: 'monster_flame_spikes.png'
   };
 
   function getMonsterSprite(monsterId, options) {
@@ -610,9 +610,12 @@ window.TT = window.TT || {};
   function drawHalo(ctx, x, y, radius, t, haloId, color) {
     const sp = getHaloSprite(haloId || 'HALO_CRIMSON_SUN');
     if (!sp || !sp.canvas) return false;
+    const def = ((TT.DATA && TT.DATA.halos) || []).find(h => h.id === haloId);
+    // mặc định thần luân đứng yên (chỉ phập phồng, rực sáng); muốn xoay thì đặt spin > 0 trong D.halos
+    const spin = def && typeof def.spin === 'number' ? def.spin : 0;
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(t * 0.9);
+    if (spin) ctx.rotate(t * spin);
     const pulse = 1 + Math.sin(t * 3.2) * 0.05;
     ctx.scale(pulse, pulse);
     const size = radius * 2.2;
@@ -624,15 +627,70 @@ window.TT = window.TT || {};
     return true;
   }
 
-  function drawWings(ctx, x, y, width, t, wingId) {
-    const sp = getWingsSprite(wingId || 'WINGS_NIGHT_BLUE');
-    if (!sp || !sp.canvas) return false;
+  // Ảnh cánh đã tách nền sẵn (không qua bộ lọc nền lúc chạy, vì lọc 'black' ăn mất lông vũ tối màu).
+  const plainImages = {};
+  function plainImage(src) {
+    if (plainImages[src]) return plainImages[src];
+    const rec = { img: null, ready: false };
+    plainImages[src] = rec;
+    if (typeof Image === 'undefined') return rec;
+    const candidates = ['assets/' + src, 'src/tutien/assets/' + src, '../assets/' + src, src];
+    let idx = 0;
+    const img = new Image();
+    img.onload = () => { rec.img = img; rec.ready = true; };
+    img.onerror = () => { if (++idx < candidates.length) img.src = candidates[idx]; };
+    img.src = candidates[0];
+    return rec;
+  }
+
+  /**
+   * Cặp cánh sau lưng, cùng chỗ với thần luân (tâm ~ (x, y)).
+   * Mỗi cánh xoay quanh gốc ở giữa lưng để đập cánh; di chuyển/lướt thì đập nhanh và mạnh hơn.
+   * opts: { dir: 'down'|'up'|'side', flip: 1|-1, moving, dash, color }
+   *  - 'down' (nhìn thẳng): cánh xoè hai bên, vẽ trước thân (người gọi vẽ thân đè lên).
+   *  - 'up'   (quay lưng):  cánh phủ lên lưng (người gọi vẽ sau thân).
+   *  - 'side' (nhìn nghiêng): cánh thu hẹp, lệch về phía sau lưng.
+   */
+  function drawWings(ctx, x, y, width, t, wingId, opts) {
+    opts = opts || {};
+    const list = (TT.DATA && TT.DATA.wings) || [];
+    const def = list.find(w => w.id === wingId) || list[0];
+    if (!def || !def.file) return false;
+    const rec = plainImage(def.file);
+    if (!rec.ready) return false;
+    const img = rec.img, iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    const half = Math.floor(iw / 2);
+    const h = width * ih / iw, hw = width / 2;
+    const rootY = (def.rootY || 0.5) * h;
+    const speed = opts.dash ? 9 : opts.moving ? 6 : 3;
+    const amp = opts.dash ? 0.05 : opts.moving ? 0.16 : 0.1;
+    const flap = Math.sin(t * speed) * amp;
+    const dir = opts.dir || 'down';
+
     ctx.save();
     ctx.translate(x, y);
-    const flap = 1 + Math.sin(t * 3.5) * 0.08;
-    ctx.scale(flap, 1);
-    const h = (width * sp.h) / (sp.w || 1);
-    ctx.drawImage(sp.canvas, -width / 2, -h / 2, width, h);
+    if (def.color) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      Art.glow(ctx, 0, 0, width * 0.45, def.color, 0.16 + Math.sin(t * 2.4) * 0.05);
+      ctx.restore();
+    }
+    if (dir === 'side') {
+      // góc ngang là thế 3/4: cánh vẫn xoè hai bên, ép nhẹ và lệch về phía sau lưng
+      ctx.translate(-(opts.flip || 1) * width * 0.06, 0);
+      ctx.scale((opts.flip || 1) * 0.8, 1);
+    }
+    // dash: cánh khép về sau
+    const fold = opts.dash ? 0.25 : 0;
+    // cánh trái (nửa trái ảnh), gốc ở mép phải của nửa
+    ctx.save();
+    ctx.rotate(-flap - fold);
+    ctx.drawImage(img, 0, 0, half, ih, -hw, -rootY, hw, h);
+    ctx.restore();
+    // cánh phải
+    ctx.save();
+    ctx.rotate(flap + fold);
+    ctx.drawImage(img, half, 0, iw - half, ih, 0, -rootY, hw, h);
+    ctx.restore();
     ctx.restore();
     return true;
   }
