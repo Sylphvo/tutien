@@ -3,55 +3,629 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Thư Viện Nhân Vật — Ngự Kiếm Độ Kiếp</title>
+  <title>Thư Viện Nhân Vật & Vũ Khí — Ngự Kiếm Độ Kiếp</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #0d131b; color: #d6dde8; font-family: "Segoe UI", sans-serif; font-size: 14px; }
-    header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-      padding: 10px 16px; background: #0a0f16; border-bottom: 2px solid #8a6d32; }
-    header h1 { margin: 0 14px 0 0; font-family: serif; font-size: 20px; letter-spacing: 3px; color: #ffd23f; }
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: #0a0f16; border-bottom: 2px solid #8a6d32;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .header-top {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      padding: 10px 16px; border-bottom: 1px solid #1e2838;
+    }
+    .header-top h1 { margin: 0 14px 0 0; font-family: serif; font-size: 20px; letter-spacing: 3px; color: #ffd23f; }
     .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
     .grp span { color: #7d8aa0; margin-right: 2px; }
-    button { background: #1a2436; color: #d6dde8; border: 1px solid #3a4862; padding: 4px 10px; cursor: pointer; font-family: inherit; }
+    button {
+      background: #1a2436; color: #d6dde8; border: 1px solid #3a4862;
+      padding: 4px 10px; cursor: pointer; font-family: inherit; font-size: 13px;
+      transition: all 0.15s ease;
+    }
+    button:hover { background: #26344d; border-color: #556c91; }
     button.on { color: #ffd23f; border-color: #8a6d32; background: #222d42; }
+
+    /* Thanh điều hướng Tab chính */
+    .tab-bar {
+      display: flex; gap: 6px; padding: 6px 16px; background: #0e1520;
+      align-items: center; overflow-x: auto;
+    }
+    .tab-btn {
+      background: #141d2a; color: #8fa0b8; border: 1px solid #28374d;
+      padding: 6px 16px; border-radius: 4px; font-weight: 600; font-size: 13px;
+      cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .tab-btn:hover { background: #1c283a; color: #e1ebf7; border-color: #3f5577; }
+    .tab-btn.on {
+      background: linear-gradient(180deg, #2b394f, #1b2637);
+      color: #ffd23f; border-color: #c99a32;
+      box-shadow: 0 0 10px rgba(255, 210, 63, 0.25);
+    }
+    .tab-btn .badge {
+      background: #253347; color: #ffd23f; font-size: 11px; padding: 1px 6px;
+      border-radius: 10px; border: 1px solid #485c7b;
+    }
+
     main { padding: 8px 16px 40px; }
-    h2 { font-family: serif; color: #ffd23f; letter-spacing: 2px; border-bottom: 1px solid #2a3448; padding-bottom: 6px; margin: 22px 0 10px; }
-    h2 small { font-family: "Segoe UI", sans-serif; color: #7d8aa0; letter-spacing: 0; font-size: 13px; margin-left: 8px; }
+    .gallery-sec { transition: opacity 0.2s ease; }
+    .gallery-sec.hidden { display: none !important; }
+
+    /* Tiêu đề mục & hành động */
+    .sec-header {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end;
+      border-bottom: 1px solid #2a3448; padding-bottom: 8px; margin: 20px 0 12px; gap: 10px;
+    }
+    .sec-header h2 {
+      margin: 0; font-family: serif; color: #ffd23f; letter-spacing: 2px;
+    }
+    .sec-header h2 small {
+      display: inline-block; font-family: "Segoe UI", sans-serif; color: #7d8aa0;
+      letter-spacing: 0; font-size: 13px; margin-left: 8px; font-weight: normal;
+    }
+    .sec-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-action {
+      background: #1c2738; color: #d6dde8; border: 1px solid #3c4f6d;
+      padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
+      font-weight: 600; display: flex; align-items: center; gap: 6px;
+    }
+    .btn-action:hover { background: #26354d; border-color: #5d7aa7; color: #fff; }
+    .btn-action.primary {
+      background: linear-gradient(180deg, #8a6825, #5e4513);
+      border-color: #ffd23f; color: #fff9e6;
+    }
+    .btn-action.primary:hover {
+      background: linear-gradient(180deg, #a77f30, #735417);
+      box-shadow: 0 0 10px rgba(255, 210, 63, 0.35);
+    }
+    .btn-action.danger {
+      background: #381b1f; border-color: #7a3038; color: #f28b93;
+    }
+    .btn-action.danger:hover { background: #4d242a; border-color: #a8424e; }
+
+    /* Luyện Khí Đài (Forge Panel / Studio thêm vũ khí) */
+    .forge-panel {
+      background: linear-gradient(180deg, #16202e, #0f1622);
+      border: 1px solid #c99a32; border-radius: 6px; padding: 16px;
+      margin: 12px 0 20px; box-shadow: 0 6px 24px rgba(0,0,0,0.55);
+    }
+    .forge-panel.hidden { display: none; }
+    .forge-title {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #2c3a50; padding-bottom: 10px; margin-bottom: 14px;
+    }
+    .forge-title h3 {
+      margin: 0; font-family: serif; color: #ffd23f; font-size: 17px; letter-spacing: 1.5px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .forge-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;
+    }
+    .forge-col { display: flex; flex-direction: column; gap: 10px; }
+    .forge-col label {
+      font-weight: 600; color: #c4d3e8; font-size: 12px; margin-bottom: -4px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .forge-col input[type="text"],
+    .forge-col input[type="number"],
+    .forge-col select,
+    .forge-col textarea {
+      background: #0d141e; border: 1px solid #2e3e56; color: #eaf0f8;
+      padding: 6px 10px; border-radius: 4px; font-family: inherit; font-size: 13px;
+      width: 100%;
+    }
+    .forge-col input[type="text"]:focus,
+    .forge-col input[type="number"]:focus,
+    .forge-col select:focus,
+    .forge-col textarea:focus {
+      outline: none; border-color: #ffd23f; box-shadow: 0 0 6px rgba(255, 210, 63, 0.3);
+    }
+    .forge-subgroup {
+      background: #0a0f16; border: 1px dashed #3a4b64; border-radius: 4px;
+      padding: 10px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .forge-subgroup.hidden { display: none; }
+    .img-preview-wrap {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .img-preview {
+      width: 50px; height: 50px; border: 1px solid #485c7b; background: #000;
+      object-fit: contain; border-radius: 4px;
+    }
+
+    /* Bảng màu */
+    .color-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px;
+    }
+    .color-box {
+      background: #0a0f16; border: 1px solid #28374d; border-radius: 4px;
+      padding: 6px 8px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .color-box span { font-size: 11px; color: #9bb0cb; }
+    .color-box input[type="color"] {
+      border: none; width: 26px; height: 24px; padding: 0; background: none; cursor: pointer;
+    }
+
+    .forge-footer {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      margin-top: 16px; padding-top: 12px; border-top: 1px solid #28374d; gap: 8px;
+    }
+    .forge-btn-grp { display: flex; gap: 8px; }
+
+    /* Hộp xuất mã JS */
+    .code-export-box {
+      background: #080c12; border: 1px solid #3a4862; border-radius: 4px;
+      padding: 12px; margin-top: 14px;
+    }
+    .code-export-box.hidden { display: none; }
+    .code-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+      font-size: 12px; color: #a4b6cd;
+    }
+    .code-export-box pre {
+      margin: 0; background: #05080c; border: 1px solid #1c2738; padding: 10px;
+      border-radius: 4px; overflow-x: auto; color: #7fe3ff; font-family: Consolas, monospace; font-size: 12px;
+    }
+
+    /* Hộp hướng dẫn code */
+    .guide-panel {
+      background: #111a26; border: 1px solid #2a3c54; border-radius: 6px;
+      padding: 14px 18px; margin: 12px 0 20px; line-height: 1.6;
+    }
+    .guide-panel.hidden { display: none; }
+    .guide-panel h4 { margin: 0 0 8px; color: #ffd23f; font-family: serif; font-size: 15px; }
+    .guide-panel ol { margin: 0; padding-left: 20px; color: #b9cadc; }
+    .guide-panel li { margin-bottom: 6px; }
+    .guide-panel code { background: #070b10; color: #8de3ff; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+
+    /* Cards */
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
-    .card { background: linear-gradient(#1b2232, #11161f); border: 1px solid #2f3b52; padding: 10px; }
+    .card {
+      background: linear-gradient(#1b2232, #11161f); border: 1px solid #2f3b52;
+      padding: 10px; border-radius: 4px; transition: transform 0.15s ease, border-color 0.15s ease;
+      position: relative;
+    }
+    .card:hover { border-color: #4f668c; transform: translateY(-2px); }
     .card.wide { grid-column: 1 / -1; }
-    .card canvas { display: block; width: 100%; height: auto; border: 1px solid #263248; image-rendering: auto; }
-    .name { font-family: serif; font-size: 16px; font-weight: bold; margin: 8px 0 2px; letter-spacing: 1px; }
+    .card canvas { display: block; width: 100%; height: auto; border: 1px solid #263248; image-rendering: auto; border-radius: 3px; }
+    .card-head { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 2px; }
+    .name { font-family: serif; font-size: 16px; font-weight: bold; letter-spacing: 1px; }
     .meta { color: #e0c27a; font-size: 12px; margin-bottom: 4px; }
     .desc { color: #a8b4c8; font-size: 13px; line-height: 1.5; }
     .tags { font-size: 12px; color: #7d8aa0; margin-top: 4px; }
     .labels { display: flex; justify-content: space-around; font-size: 12px; color: #7d8aa0; margin-top: 4px; }
+    .badge-custom {
+      background: #735118; color: #fff2a8; font-size: 10px; padding: 1px 6px;
+      border-radius: 3px; border: 1px solid #ffd23f; margin-left: 6px; font-weight: normal; vertical-align: middle;
+    }
+    .badge-rarity {
+      font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: bold; margin-left: 6px; vertical-align: middle;
+    }
+    .rarity-Hiem { background: #133a26; color: #67d6a0; border: 1px solid #2ecc71; }
+    .rarity-CucPham { background: #32163b; color: #d288f0; border: 1px solid #9b59b6; }
+    .rarity-ThanBinh { background: #3b2812; color: #f2b45e; border: 1px solid #f39c12; }
+    .rarity-TienKhi { background: #3b141a; color: #ff708a; border: 1px solid #e74c3c; }
+    .badge-sheet {
+      background: #152233; color: #70d6ff; border: 1px solid #284466; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: 4px;
+    }
+    .weapon-filter-bar {
+      display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 14px;
+    }
+    .filter-pill {
+      background: #141a24; color: #9aaec7; border: 1px solid #2c3a4f; padding: 4px 10px;
+      border-radius: 14px; font-size: 11px; cursor: pointer; transition: all 0.15s ease;
+    }
+    .filter-pill:hover { background: #1c2636; color: #eaf2fc; border-color: #486284; }
+    .filter-pill.on {
+      background: #28394e; color: #ffd23f; border-color: #ffd23f; box-shadow: 0 0 6px rgba(255, 210, 63, 0.25);
+    }
+    .btn-del-weapon {
+      background: #381a1f; color: #f5848c; border: 1px solid #752832;
+      border-radius: 3px; padding: 2px 6px; font-size: 11px; cursor: pointer;
+    }
+    .btn-del-weapon:hover { background: #54222a; border-color: #a83848; color: #fff; }
+    .sect-preview-group { margin: 14px 0; padding: 14px; border: 1px solid #252a35; border-radius: 8px; background: #11141b; }
+    .sect-preview-group h3 { margin: 0 0 4px; font-size: 15px; }
+    .sect-preview-group > .dim { margin: 0 0 12px; }
+    .preview-affiliation { min-height: 58px; margin: 8px 0; color: #a5adbb; font-size: 12px; line-height: 1.5; }
+    .preview-join { width: 100%; padding: 7px; border-radius: 5px; color: #f3c27b; border-color: #705432; }
+    .preview-selection { border-color: var(--card-color, #88643a); box-shadow: 0 0 12px color-mix(in srgb, var(--card-color, #88643a) 25%, transparent); }
+
+    :root {
+      color-scheme: dark;
+      --dashboard-bg: #090b10;
+      --dashboard-panel: #11141b;
+      --dashboard-line: #252a35;
+      --dashboard-muted: #858d9d;
+      --dashboard-gold: #f2b45e;
+      --dashboard-green: #67d6a0;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--dashboard-bg); color: #e1e5ed; font-size: 13px; }
+    .app-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar { position: sticky; top: 0; display: flex; flex-direction: column; height: 100vh; padding: 18px 12px 12px;
+      border-right: 1px solid var(--dashboard-line); background: #0d1016; }
+    .brand { display: grid; grid-template-columns: 38px 1fr; align-items: center; column-gap: 10px; padding: 4px 8px 22px; }
+    .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px;
+      color: #17120c; background: linear-gradient(145deg, #ffd99c, var(--dashboard-gold)); font-size: 20px; }
+    .brand strong { font-size: 14px; letter-spacing: .3px; }
+    .brand small { grid-column: 2; margin-top: -7px; color: var(--dashboard-muted); font-size: 10px; letter-spacing: 1.1px; }
+    .nav-label { padding: 8px 10px; color: #626b7a; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; }
+    .tab-bar { display: grid; gap: 4px; padding: 0; background: transparent; overflow: visible; }
+    .tab-btn { width: 100%; justify-content: flex-start; padding: 10px; border-color: transparent; border-radius: 7px;
+      color: #aab1bf; background: transparent; text-align: left; }
+    .tab-btn:hover, .tab-btn.on { color: #f4c27e; border-color: #493722; background: #211a14; box-shadow: none; }
+    .tab-btn .badge { margin-left: auto; }
+    .side-status { margin-top: auto; padding: 12px 10px; border: 1px solid var(--dashboard-line); border-radius: 8px; background: #11141a; }
+    .side-status strong { display: block; margin-bottom: 8px; font-size: 11px; }
+    .status-line { display: flex; align-items: center; gap: 7px; margin-top: 7px; color: var(--dashboard-muted); font-size: 11px; }
+    .status-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--dashboard-green); box-shadow: 0 0 9px #67d6a077; }
+    .workspace { min-width: 0; }
+    .workspace > header { position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--dashboard-line);
+      background: #0c0f15ee; box-shadow: none; backdrop-filter: blur(14px); }
+    .header-top { min-height: 72px; justify-content: space-between; padding: 12px 24px; border: 0; }
+    .header-top h1 { margin: 0; color: #edf0f6; font-family: "Segoe UI", sans-serif; font-size: 18px; letter-spacing: .2px; }
+    .page-heading { display: grid; gap: 4px; }
+    .page-heading small { color: var(--dashboard-muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+    .display-settings { position: relative; margin-left: auto; }
+    .display-settings summary { padding: 8px 11px; border: 1px solid #343a46; border-radius: 6px; color: #d9deea;
+      background: #151922; cursor: pointer; list-style: none; white-space: nowrap; }
+    .display-settings summary::-webkit-details-marker { display: none; }
+    .display-settings summary::after { content: "⌄"; margin-left: 9px; color: var(--dashboard-muted); }
+    .settings-menu { position: absolute; top: calc(100% + 9px); right: 0; display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 12px; width: min(460px, calc(100vw - 32px)); padding: 14px; border: 1px solid #333a47;
+      border-radius: 9px; background: #141821; box-shadow: 0 16px 44px #0009; }
+    .settings-menu .grp { flex-wrap: wrap; gap: 5px; margin: 0; }
+    .settings-menu .grp span { width: 100%; margin: 0 0 3px; color: var(--dashboard-muted); font-size: 11px; }
+    .settings-menu .grp button { padding: 5px 8px; border-color: #343b48; border-radius: 5px; color: #bfc6d3; background: #1a1f29; }
+    .settings-menu .grp button.on { color: #f3c27b; border-color: #8a6336; background: #282116; }
+    main { padding: 18px 24px 48px; }
+    .dashboard-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .dashboard-metric { min-height: 78px; padding: 13px 15px; border: 1px solid var(--dashboard-line); border-radius: 8px; background: var(--dashboard-panel); }
+    .dashboard-metric span { color: var(--dashboard-muted); font-size: 11px; }
+    .dashboard-metric strong { display: block; margin-top: 7px; color: var(--dashboard-gold); font-size: 22px; line-height: 1; }
+    .sec-header { margin-top: 14px; padding: 14px; border: 1px solid var(--dashboard-line); border-radius: 8px 8px 0 0;
+      background: var(--dashboard-panel); }
+    .sec-header h2 { color: #edf0f6; font-family: "Segoe UI", sans-serif; font-size: 14px; letter-spacing: .15px; }
+    .sec-header h2 small { display: block; margin: 5px 0 0; font-size: 11px; }
+    .sec-actions { flex-wrap: wrap; }
+    .btn-action { border-radius: 5px; }
+    .gallery-sec > .cards, .gallery-sec > .forge-panel, .gallery-sec > .guide-panel { margin-bottom: 14px; }
+    .cards { grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 10px; }
+    .card { min-width: 0; padding: 9px; border-color: #292f3b; border-radius: 7px;
+      background: linear-gradient(150deg, #181c25, #11141b); }
+    .card:hover { border-color: #88643a; transform: translateY(-1px); }
+    .card canvas { border-color: #252c38; border-radius: 4px; }
+    .name { font-family: "Segoe UI", sans-serif; font-size: 14px; letter-spacing: .2px; }
+    .meta { font-size: 11px; }
+    .desc { color: #a5adbb; font-size: 12px; }
+    .tags, .labels { font-size: 11px; }
+    .forge-panel { border-radius: 8px; }
+    @media (max-width: 1050px) {
+      .app-shell { grid-template-columns: 190px minmax(0, 1fr); }
+      .header-top, main { padding-right: 16px; padding-left: 16px; }
+      .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .app-shell { display: block; }
+      .sidebar { position: static; width: 100%; height: auto; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--dashboard-line); }
+      .brand { grid-template-columns: 32px 1fr; padding: 0 4px 10px; }
+      .brand-mark { width: 30px; height: 30px; }
+      .brand small { margin-top: -5px; }
+      .nav-label, .side-status { display: none; }
+      .tab-bar { display: flex; overflow-x: auto; }
+      .tab-btn { width: auto; flex: 0 0 auto; padding: 8px; font-size: 11px; }
+      .header-top { position: static; min-height: 64px; }
+      .header-top h1 { font-size: 15px; }
+      main { padding: 13px 12px 32px; }
+      .settings-menu { position: fixed; top: 122px; right: 12px; }
+      .cards { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
+      .sec-header { align-items: flex-start; }
+    }
+    @media (max-width: 460px) {
+      .header-top { gap: 8px; padding: 10px 12px; }
+      .page-heading small { font-size: 8px; }
+      .header-top h1 { font-size: 14px; }
+      .settings-menu { grid-template-columns: 1fr; max-height: 70vh; overflow-y: auto; }
+      .dashboard-metrics { gap: 7px; }
+      .dashboard-metric { min-height: 68px; padding: 10px; }
+      .dashboard-metric strong { font-size: 19px; }
+      .cards { grid-template-columns: 1fr; }
+      .sec-actions { width: 100%; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>THƯ VIỆN NHÂN VẬT</h1>
-    <div class="grp" id="g-zoom"><span>Phóng to</span></div>
-    <div class="grp" id="g-bg"><span>Nền</span></div>
-    <div class="grp" id="g-elem"><span>Linh khí</span></div>
-    <div class="grp" id="g-realm"><span>Cảnh giới</span></div>
-  </header>
-  <main>
-    <h2>KIẾM TU · HOẠT CẢNH <small>Skin đang chọn, đủ 3 hướng và 5 hoạt cảnh</small></h2>
-    <div class="cards"><div class="card wide"><canvas id="anims"></canvas><div class="labels" id="anim-labels"></div></div></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <strong>Ngự Kiếm</strong>
+        <small>TRUNG TÂM TẠO HÌNH</small>
+      </div>
+      <div class="nav-label">THƯ VIỆN</div>
+      <nav class="tab-bar" id="category-tabs" aria-label="Danh mục thư viện">
+        <button class="tab-btn on" data-tab="weapons">⚔️ VŨ KHÍ <span class="badge" id="badge-weapon-count">0</span></button>
+        <button class="tab-btn" data-tab="skins">🥋 Y PHỤC</button>
+        <button class="tab-btn" data-tab="halos">✨ THẦN DỰC &amp; THẦN LUÂN</button>
+        <button class="tab-btn" data-tab="eyes">👁️ TIÊN NHÃN (MẮT)</button>
+        <button class="tab-btn" data-tab="avatars">👑 HÓA THẦN (NGOẠI TRANG)</button>
+        <button class="tab-btn" data-tab="badges">🛡️ HUY HIỆU &amp; SKILL</button>
+        <button class="tab-btn" data-tab="anims">🎬 HOẠT CẢNH</button>
+        <button class="tab-btn" data-tab="npcs">👥 NPC TÔNG MÔN</button>
+        <button class="tab-btn" data-tab="enemies">👹 YÊU THÚ</button>
+        <button class="tab-btn" data-tab="sects">🏯 TÔNG MÔN &amp; GIA TỘC</button>
+        <button class="tab-btn" data-tab="all">🌟 TẤT CẢ</button>
+      </nav>
+      <div class="side-status">
+        <strong>TRẠNG THÁI HỆ THỐNG</strong>
+        <div class="status-line"><span class="status-dot"></span>Thư viện sẵn sàng</div>
+        <div class="status-line"><span class="status-dot"></span>Hoạt ảnh đang chạy</div>
+      </div>
+    </aside>
+    <div class="workspace">
+      <header>
+        <div class="header-top">
+          <div class="page-heading">
+            <small>Thư viện nhân vật / Quản lý</small>
+            <h1>Quản lý giao diện</h1>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button class="btn-action" id="btn-demo-max" style="background: linear-gradient(135deg, #a73a12, #f39c12); color: #fff; border: 1px solid #ffd23f; font-weight: bold; padding: 6px 14px; box-shadow: 0 0 10px rgba(243, 156, 18, 0.4); cursor: pointer; border-radius: 6px;">⚡ Bật Demo Xịn Nhất (Hóa Thần)</button>
+            <details class="display-settings">
+              <summary>Tùy chỉnh hiển thị</summary>
+              <div class="settings-menu">
+                <div class="grp" id="g-zoom"><span>Phóng to</span></div>
+                <div class="grp" id="g-bg"><span>Nền</span></div>
+                <div class="grp" id="g-elem"><span>Linh khí</span></div>
+                <div class="grp" id="g-realm"><span>Cảnh giới</span></div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </header>
 
-    <h2>KIẾM TU · Y PHỤC <small>Bấm vào thẻ để xem skin đó ở mục Hoạt Cảnh</small></h2>
-    <div class="cards" id="skins"></div>
+      <main>
+        <section class="dashboard-metrics" aria-label="Tổng quan thư viện">
+          <div class="dashboard-metric"><span>Bộ y phục</span><strong id="metric-skin-count">—</strong></div>
+          <div class="dashboard-metric"><span>Kiếm hình</span><strong id="metric-weapon-count">—</strong></div>
+          <div class="dashboard-metric"><span>NPC Tông Môn</span><strong id="metric-npc-count">—</strong></div>
+          <div class="dashboard-metric"><span>Yêu thú</span><strong id="metric-enemy-count">—</strong></div>
+        </section>
+    <!-- MỤC 1: VŨ KHÍ & KIẾM HÌNH -->
+    <section class="gallery-sec" id="sec-weapons" data-sec="weapons">
+      <div class="sec-header">
+        <h2>KIẾM TU · VŨ KHÍ & KIẾM HÌNH <small>Mỗi thẻ hiển thị nhân vật đang cầm kiếm & chi tiết xoay kiếm</small></h2>
+        <div class="sec-actions">
+          <button class="btn-action primary" id="btn-toggle-forge">➕ Thêm Vũ Khí Mới</button>
+          <button class="btn-action" id="btn-toggle-guide">📖 Xem Cách Thêm Bằng Code</button>
+        </div>
+      </div>
 
-    <h2>KIẾM TU · KIẾM HÌNH <small>Mỗi thẻ hiển thị nhân vật đang cầm kiếm; chọn để cập nhật Hoạt Cảnh</small></h2>
-    <div class="cards" id="sword-skins"></div>
+      <!-- Thanh lọc danh mục vũ khí -->
+      <div class="weapon-filter-bar" id="weapon-filter-bar">
+        <button class="filter-pill on" data-filter="all">Tất cả vũ khí (<span id="count-all">0</span>)</button>
+        <button class="filter-pill" data-filter="sheet1">Sheet 1: Đại Đao & Trọng Kiếm (<span id="count-s1">0</span>)</button>
+        <button class="filter-pill" data-filter="sheet2">Sheet 2: Huyễn Tinh Tiên Kiếm (<span id="count-s2">0</span>)</button>
+        <button class="filter-pill" data-filter="sheet3">Sheet 3: Cổ Đại Thần Binh (<span id="count-s3">0</span>)</button>
+        <button class="filter-pill" data-filter="crystal">Pha Lê & Kiếm Khác (<span id="count-other">0</span>)</button>
+      </div>
 
-    <h2>NPC TÔNG MÔN <small>Đứng · Quay lưng · Đi ngang. Tên vàng = NPC có chức năng</small></h2>
-    <div class="cards" id="npcs"></div>
+      <!-- Studio Tạo & Thử Nghiệm Vũ Khí (Luyện Khí Đài) -->
+      <div class="forge-panel hidden" id="forge-panel">
+        <div class="forge-title">
+          <h3>⚔️ LUYỆN KHÍ ĐÀI · TẠO VÀ THỬ NGHIỆM VŨ KHÍ MỚI</h3>
+          <button class="btn-action" id="btn-close-forge">✕ Đóng</button>
+        </div>
 
-    <h2>YÊU THÚ <small>Chớp trắng = trạng thái trúng đòn</small></h2>
-    <div class="cards" id="enemies"></div>
-  </main>
+        <div class="forge-grid">
+          <!-- Cột 1: Thông tin cơ bản -->
+          <div class="forge-col">
+            <label for="new-w-name">Tên Vũ Khí:</label>
+            <input type="text" id="new-w-name" placeholder="vd: Băng Hỏa Cuồng Long Kiếm" value="Tử Điện Long Kiếm">
+
+            <label for="new-w-id">Mã Định Danh (ID):</label>
+            <input type="text" id="new-w-id" placeholder="vd: TU_DIEN_KIEM" value="TU_DIEN_KIEM">
+
+            <label for="new-w-realm">Cảnh Giới Yêu Cầu:</label>
+            <select id="new-w-realm">
+              <option value="0">Luyện Khí</option>
+              <option value="1">Trúc Cơ</option>
+              <option value="2">Kim Đan</option>
+              <option value="3">Nguyên Anh</option>
+              <option value="4">Hóa Thần</option>
+            </select>
+
+            <label for="new-w-price">Giá (Linh Thạch):</label>
+            <input type="number" id="new-w-price" value="2500" min="0" step="100">
+          </div>
+
+          <!-- Cột 2: Hình dáng & Sprite ảnh -->
+          <div class="forge-col">
+            <label for="new-w-shape">Kiểu Dáng / Nguồn Sprite:</label>
+            <select id="new-w-shape">
+              <option value="sheet1">⚔️ Sprite Sheet 1 (Đại Đao & Chiến Kiếm)</option>
+              <option value="sheet2">💎 Sprite Sheet 2 (Huyễn Tinh Tiên Kiếm)</option>
+              <option value="sheet3">🗿 Sprite Sheet 3 (Cổ Đại Ma Kiếm)</option>
+              <option value="crystal_sword">💎 Sprite Kiếm Pha Lê (Băng Tinh Kiếm)</option>
+              <option value="custom_sprite">🖼️ Sprite Ảnh Tùy Chọn (PNG trong suốt từ máy/đường dẫn)</option>
+              <option value="jian">⚔️ Trường Kiếm Cổ Truyền (Thanh Phong / Lôi Âm)</option>
+              <option value="thin">🗡️ Tế Kiếm Mảnh (Hàn Băng Kiếm)</option>
+              <option value="broad">🗡️ Kiếm Bản Rộng (Xích Long / Kim Ô)</option>
+              <option value="heavy">🗿 Trọng Kiếm Vô Phong (Huyền Thiết)</option>
+              <option value="solar_flame">☀️ Nhật Luân Hỏa Diệm Kiếm</option>
+            </select>
+
+            <div id="forge-sheet-options" class="forge-subgroup hidden">
+              <label>Vùng cắt trên Sprite Sheet (sx, sy, sw, sh):</label>
+              <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px;">
+                <input type="number" id="new-w-sx" placeholder="sx" value="13">
+                <input type="number" id="new-w-sy" placeholder="sy" value="14">
+                <input type="number" id="new-w-sw" placeholder="sw" value="102">
+                <input type="number" id="new-w-sh" placeholder="sh" value="466">
+              </div>
+              <small style="color:#7d8aa0; font-size:11px;">Hệ thống sẽ tự động Trim loại bỏ viền trong suốt thừa.</small>
+            </div>
+
+            <div id="forge-sprite-options" class="forge-subgroup hidden">
+              <label>Chọn file ảnh từ máy (PNG trong suốt):</label>
+              <input type="file" id="new-w-file" accept="image/*">
+              <label>Hoặc nhập đường dẫn ảnh:</label>
+              <input type="text" id="new-w-sprite-path" placeholder="vd: assets/crystal_sword.png hoặc link ảnh">
+              <div class="img-preview-wrap">
+                <span style="font-size:12px; color:#7d8aa0;">Xem trước ảnh:</span>
+                <img id="forge-img-preview" class="img-preview" alt="Preview" src="assets/crystal_sword.png">
+              </div>
+            </div>
+
+            <label for="new-w-desc">Mô Tả Vũ Khí:</label>
+            <textarea id="new-w-desc" rows="3" placeholder="Mô tả truyền thuyết và uy lực kiếm...">Thần kiếm tím sẫm hội tụ cuồng lôi chín tầng trời, lưỡi kiếm uốn lượn như giao long xuất thế.</textarea>
+          </div>
+
+          <!-- Cột 3: Bảng màu -->
+          <div class="forge-col">
+            <label>Bảng Màu Kiếm (Palette):</label>
+            <div class="color-grid">
+              <div class="color-box">
+                <span>Lưỡi kiếm:</span>
+                <input type="color" id="new-w-col-blade" value="#f0e6ff">
+              </div>
+              <div class="color-box">
+                <span>Bóng lưỡi:</span>
+                <input type="color" id="new-w-col-bladeshade" value="#9b59b6">
+              </div>
+              <div class="color-box">
+                <span>Chuôi kiếm:</span>
+                <input type="color" id="new-w-col-hilt" value="#2c1a4d">
+              </div>
+              <div class="color-box">
+                <span>Hộ thủ:</span>
+                <input type="color" id="new-w-col-gold" value="#ffd700">
+              </div>
+              <div class="color-box">
+                <span>Hào quang:</span>
+                <input type="color" id="new-w-col-gem" value="#b48cff">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="forge-footer">
+          <div class="forge-btn-grp">
+            <button class="btn-action primary" id="btn-forge-submit">✨ Thêm Ngay Vào Thư Viện</button>
+            <button class="btn-action" id="btn-forge-export">📋 Xuất Mã JavaScript</button>
+          </div>
+          <button class="btn-action danger" id="btn-forge-clear-custom" title="Xóa toàn bộ vũ khí tự tạo">🗑️ Xóa Vũ Khí Tự Tạo</button>
+        </div>
+
+        <!-- Khung xuất mã Code JS -->
+        <div class="code-export-box hidden" id="forge-code-box">
+          <div class="code-header">
+            <span>Đoạn mã JavaScript chuẩn (dán vào mảng <code>swordSkins: [...]</code> trong <code>src/tutien/js/data.js</code>):</span>
+            <button class="btn-action" id="btn-copy-code">Sao chép mã</button>
+          </div>
+          <pre><code id="forge-code-content"></code></pre>
+        </div>
+      </div>
+
+      <!-- Khung hướng dẫn code -->
+      <div class="guide-panel hidden" id="guide-panel">
+        <h4>📖 Hướng Dẫn Thêm Vũ Khí Vào Mã Nguồn Trò Chơi:</h4>
+        <ol>
+          <li><b>Bước 1: Chuẩn bị ảnh kiếm:</b> Định dạng <code>.png</code> nền trong suốt. Mũi kiếm chúc xuống hoặc theo hướng dọc.</li>
+          <li><b>Bước 2: Đặt file vào dự án:</b> Copy ảnh vào thư mục <code>src/tutien/assets/ten_kiem.png</code> hoặc <code>kiem/ten_kiem.png</code>.</li>
+          <li><b>Bước 3: Khai báo vào dữ liệu:</b> Mở file <code>src/tutien/js/data.js</code>, tìm đến mảng <code>swordSkins: [ ... ]</code> và dán đoạn cấu hình đã xuất từ nút "📋 Xuất Mã JavaScript" ở trên.</li>
+          <li><b>Bước 4: F5 tải lại trang:</b> Vũ khí mới sẽ vĩnh viễn có mặt trong game, thư viện nhân vật và bảng trang bị Kiếm Các!</li>
+        </ol>
+      </div>
+
+      <!-- Danh sách card Kiếm hình -->
+      <div class="cards" id="sword-skins"></div>
+    </section>
+
+    <!-- MỤC 2: Y PHỤC -->
+    <section class="gallery-sec" id="sec-skins" data-sec="skins">
+      <div class="sec-header">
+        <h2>KIẾM TU · Y PHỤC <small>Bấm vào thẻ để chọn trang phục cho nhân vật</small></h2>
+      </div>
+      <div class="cards" id="skins"></div>
+    </section>
+
+    <!-- MỤC MỚI: THẦN DỰC & THẦN LUÂN -->
+    <section class="gallery-sec" id="sec-halos" data-sec="halos">
+      <div class="sec-header">
+        <h2>THẦN DỰC &amp; THẦN LUÂN <small>Thần Luân thái dương xoay phát sáng & Đôi cánh Tiên Dực đập nhẹ sau lưng</small></h2>
+      </div>
+      <div class="cards" id="halos-cards"></div>
+    </section>
+
+    <!-- MỤC MỚI: TIÊN NHÃN (MẮT) -->
+    <section class="gallery-sec" id="sec-eyes" data-sec="eyes">
+      <div class="sec-header">
+        <h2>TIÊN NHÃN · MA ĐỒNG (28+ MẪU MẮT) <small>Đồng tử Tiên Đạo và Ma Tộc uy lực, xem cận cảnh và thử nghiệm trên khuôn mặt</small></h2>
+      </div>
+      <div class="cards" id="eyes-cards"></div>
+    </section>
+
+    <!-- MỤC MỚI: HÓA THẦN (NGOẠI TRANG PHÁP TƯỚNG) -->
+    <section class="gallery-sec" id="sec-avatars" data-sec="avatars">
+      <div class="sec-header">
+        <h2>HÓA THẦN · NGOẠI TRANG PHÁP TƯỚNG <small>Chuyển hóa thần thân bậc Hóa Thần đại năng, cơ giáp và thần tướng bát hoang</small></h2>
+      </div>
+      <div class="cards" id="avatars-cards"></div>
+    </section>
+
+    <!-- MỤC MỚI: HUY HIỆU & SKILL BAR -->
+    <section class="gallery-sec" id="sec-badges" data-sec="badges">
+      <div class="sec-header">
+        <h2>HUY HIỆU &amp; ICON KỸ NĂNG <small>10 Huy hiệu Ngũ Đại Tông Môn & Thế Gia, Ấn ký Nguyên tố cùng Icon kỹ năng HUD</small></h2>
+      </div>
+      <div class="cards" id="badges-cards"></div>
+    </section>
+
+    <!-- MỤC 3: HOẠT CẢNH -->
+    <section class="gallery-sec" id="sec-anims" data-sec="anims">
+      <div class="sec-header">
+        <h2>KIẾM TU · HOẠT CẢNH <small>Trang phục & Vũ khí đang chọn; đủ 3 hướng và các chuyển động</small></h2>
+      </div>
+      <div class="cards"><div class="card wide"><canvas id="anims"></canvas><div class="labels" id="anim-labels"></div></div></div>
+    </section>
+
+    <!-- MỤC 4: NPC TÔNG MÔN -->
+    <section class="gallery-sec" id="sec-npcs" data-sec="npcs">
+      <div class="sec-header">
+        <h2>NPC TÔNG MÔN <small>Đứng · Quay lưng · Đi ngang. Tên vàng = NPC có chức năng</small></h2>
+      </div>
+      <div class="cards" id="npcs"></div>
+    </section>
+
+    <!-- MỤC 5: YÊU THÚ -->
+    <section class="gallery-sec" id="sec-enemies" data-sec="enemies">
+      <div class="sec-header">
+        <h2>YÊU THÚ <small>Chớp trắng = trạng thái trúng đòn</small></h2>
+      </div>
+      <div class="cards" id="enemies"></div>
+    </section>
+
+        <section class="gallery-sec" id="sec-sects" data-sec="sects">
+          <div class="sec-header">
+            <h2>TÔNG MÔN &amp; GIA TỘC <small>Xem trước đạo bào, hào quang và huyết mạch</small></h2>
+          </div>
+          <div class="sect-preview-group">
+            <h3>Ngũ Đại Tông Môn</h3>
+            <p class="dim">Chọn thử để đổi màu đạo bào và hào quang trong thư viện.</p>
+            <div class="cards" id="sect-previews"></div>
+          </div>
+          <div class="sect-preview-group">
+            <h3>Tứ Đại Tu Tiên Thế Gia</h3>
+            <p class="dim">Huyết mạch gia tộc và chỉ số có thể xem, chọn trong modal Tông Môn &amp; Gia Tộc ở trong game.</p>
+            <div class="cards" id="clan-previews"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
 
   <script src="js/util.js"></script>
   <script src="js/data.js"></script>
@@ -63,23 +637,107 @@
   (function () {
     'use strict';
     const D = TT.DATA, U = TT.util, PPM = D.world.pixelsPerMeter;
-    const opt = { zoom: 2, bg: 'tongmon', color: D.elements.colors.Kim, realm: 0, skin: D.skins[0].id, sword: D.swordSkins[0].id };
+    const STORAGE_KEY = 'tutien_custom_weapons_v1';
 
-    // ---------------------------------------------------------- thanh điều khiển
+    // ---------------------------------------------------------- khởi tạo tùy chọn
+    const initialHash = location.hash ? location.hash.replace('#', '') : '';
+    const initialParam = typeof URLSearchParams !== 'undefined' ? new URLSearchParams(location.search).get('tab') : null;
+    const validTabs = ['weapons', 'skins', 'halos', 'eyes', 'avatars', 'badges', 'anims', 'npcs', 'enemies', 'sects', 'all'];
+    const activeTab = validTabs.includes(initialHash) ? initialHash : (validTabs.includes(initialParam) ? initialParam : 'weapons');
+
+    const opt = {
+      zoom: 2,
+      bg: 'tongmon',
+      color: D.elements.colors.Kim,
+      realm: 0,
+      skin: D.skins[0].id,
+      sword: D.swordSkins[0].id,
+      haloId: null,
+      wingsId: null,
+      eyeId: null,
+      avatarSkin: null,
+      previewSectId: D.sects[0].id,
+      previewClanId: null,
+      tab: activeTab
+    };
+    const previewColor = () => {
+      const clan = D.clans.find(item => item.id === opt.previewClanId);
+      return clan ? clan.color : D.sects.find(item => item.id === opt.previewSectId).color;
+    };
+    document.getElementById('metric-skin-count').textContent = D.skins.length;
+    document.getElementById('metric-npc-count').textContent = D.npcs.length;
+    document.getElementById('metric-enemy-count').textContent = Object.keys(D.enemies).length;
+
+    // ---------------------------------------------------------- thanh điều khiển chung
     function buttons(id, items, key, onChange) {
       const g = document.getElementById(id);
       items.forEach(([label, value]) => {
         const b = document.createElement('button');
         b.textContent = label;
-        b.onclick = () => { opt[key] = value; [...g.querySelectorAll('button')].forEach(x => x.classList.toggle('on', x === b)); if (onChange) onChange(); };
+        b.onclick = () => {
+          opt[key] = value;
+          [...g.querySelectorAll('button')].forEach(x => x.classList.toggle('on', x === b));
+          if (onChange) onChange();
+        };
         if (opt[key] === value) b.classList.add('on');
         g.appendChild(b);
       });
     }
     buttons('g-zoom', [['1x', 1], ['2x', 2], ['3x', 3]], 'zoom', layout);
-    buttons('g-bg', [['Tông Môn', 'tongmon'], ['Linh Mộc', 'linhmoc'], ['Hỏa Diệm', 'hoadiem'], ['Huyền Băng', 'huyenbang'], ['Tối', 'dark']], 'bg');
+    buttons('g-bg', [['Tông Môn', 'tongmon'], ['Linh Mộc', 'linhmoc'], ['Hỏa Diệm', 'hoadiem'], ['Huyền Băng', 'huyenbang'], ['Cổ Thành', 'thanh_luy'], ['Tối', 'dark']], 'bg');
     buttons('g-elem', D.elements.order.map(e => [D.elements.names[e], D.elements.colors[e]]), 'color');
     buttons('g-realm', D.realms.map((r, i) => [r.name, i]), 'realm');
+
+    // Nút Bật Demo Xịn Nhất (Hóa Thần Đỉnh Phong)
+    const btnDemoMax = document.getElementById('btn-demo-max');
+    if (btnDemoMax) {
+      btnDemoMax.onclick = () => {
+        opt.realm = 4; // Cảnh giới Hóa Thần
+        const vanCoSkin = D.skins.find(s => s.id === 'VAN_CO') || D.skins.find(s => s.id === 'THAI_HU') || D.skins[D.skins.length - 1];
+        if (vanCoSkin) opt.skin = vanCoSkin.id;
+        const godSword = D.swordSkins.find(s => s.id === 'S3_XICH_VIEM_CU_KIEM') || D.swordSkins.find(s => s.id === 'BANG_TINH') || D.swordSkins[0];
+        if (godSword) opt.sword = godSword.id;
+        opt.color = D.elements.colors.Hoa;
+        opt.haloId = 'HALO_CRIMSON_SUN';
+        opt.wingsId = 'WINGS_GOLDEN_DAWN';
+        opt.eyeId = 'EYE_3';
+        opt.avatarSkin = null; // hoặc giữ null để thấy rõ 5 layer trên thân Chibi Hóa Thần Bào, có thể bật avatarSkin từ tab Hóa Thần
+
+        // Cập nhật các nút hiển thị
+        const realmGroup = document.getElementById('g-realm');
+        if (realmGroup) {
+          const btns = realmGroup.querySelectorAll('button');
+          btns.forEach((b, i) => b.classList.toggle('on', i === 4));
+        }
+        const elemGroup = document.getElementById('g-elem');
+        if (elemGroup) {
+          const btns = elemGroup.querySelectorAll('button');
+          btns.forEach(b => b.classList.toggle('on', b.textContent === D.elements.names.Hoa));
+        }
+
+        // Chuyển sang xem Hoạt Cảnh để chiêm ngưỡng trọn vẹn
+        setTab('anims');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+    }
+
+    // ---------------------------------------------------------- quản lý tab danh mục
+    function setTab(tab) {
+      opt.tab = tab;
+      [...document.querySelectorAll('.tab-btn')].forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+      document.querySelectorAll('.gallery-sec').forEach(sec => {
+        if (tab === 'all') {
+          sec.classList.remove('hidden');
+        } else {
+          sec.classList.toggle('hidden', sec.dataset.sec !== tab);
+        }
+      });
+      history.replaceState(null, '', '#' + tab);
+    }
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.onclick = () => setTab(btn.dataset.tab);
+    });
+    setTab(opt.tab);
 
     // ---------------------------------------------------------- nền
     const bgCache = {};
@@ -95,7 +753,7 @@
       if (w > 640) ctx.drawImage(img, 0, 100, w - 640, Math.min(540, h), 640, 0, w - 640, Math.min(540, h));
     }
 
-    // ---------------------------------------------------------- dữ liệu thẻ
+    // ---------------------------------------------------------- dữ liệu thẻ & tạo card
     const ANIM_CASES = [
       ['Đứng', Math.PI / 2, {}], ['Đi xuống', Math.PI / 2, { moving: true, mvy: 1 }],
       ['Đi lên', -Math.PI / 2, { moving: true, mvy: -1 }], ['Đi ngang', 0, { moving: true, mvx: 1 }],
@@ -105,66 +763,602 @@
     const SKIN_POSES = [['Trước', Math.PI / 2, {}], ['Sau', -Math.PI / 2, {}], ['Ngang', 0, { moving: true, mvx: 1 }]];
     const AI_NAME = { melee: 'Cận chiến', ranged: 'Đánh xa', boss: 'Vương Bí Cảnh' };
 
-    const cards = []; // {canvas, draw(ctx, t)}
+    const cards = []; // { cv, w, h, draw }
 
     function makeCard(container, html, w, h, drawFn, onClick) {
       const div = document.createElement('div');
       div.className = 'card';
       const cv = document.createElement('canvas');
+      cv.width = w * opt.zoom;
+      cv.height = h * opt.zoom;
       div.appendChild(cv);
       div.insertAdjacentHTML('beforeend', html);
       if (onClick) { div.style.cursor = 'pointer'; div.onclick = onClick; }
       container.appendChild(div);
-      cards.push({ cv, w, h, draw: drawFn });
+      const cardObj = { cv, w, h, draw: drawFn, div };
+      cards.push(cardObj);
       return div;
     }
 
-    // Hoạt cảnh
+    // ---------------------------------------------------------- 1. HOẠT CẢNH
     const animCv = document.getElementById('anims');
     document.getElementById('anim-labels').innerHTML = ANIM_CASES.map(c => `<span>${c[0]}</span>`).join('');
     cards.push({ cv: animCv, w: ANIM_CASES.length * 90, h: 120, draw: (ctx, t) => {
       ANIM_CASES.forEach(([, aim, st], i) => {
-        const s = Object.assign({ color: opt.color, realm: opt.realm, skin: opt.skin, sword: opt.sword }, st);
+        const s = Object.assign({
+          color: opt.color, sectColor: previewColor(), realm: opt.realm,
+          skin: opt.skin, sword: opt.sword, haloId: opt.haloId, wingsId: opt.wingsId, eyeId: opt.eyeId, avatarSkin: opt.avatarSkin
+        }, st);
         if (st.castLoop) s.cast = 1 - (t % 0.7) / 0.25;
         TT.Character.draw(ctx, 45 + i * 90, 84, aim, t, s);
       });
     } });
 
-    // Y phục
+    // ---------------------------------------------------------- 2. Y PHỤC
     const skinWrap = document.getElementById('skins');
     D.skins.forEach(sk => {
       const req = sk.realm ? ` · Cần ${D.realms[sk.realm].name}` : '';
+      const realmBadge = sk.realm ? `<span class="badge-rarity" style="background:#2b1836;color:#ffd23f;border:1px solid #9b59b6;margin-left:6px;">${D.realms[sk.realm].name}</span>` : '';
       makeCard(skinWrap,
-        `<div class="name">${U.esc(sk.name)}</div><div class="meta">${sk.price ? '◆ ' + U.fmt(sk.price) + ' Linh Thạch' : 'Miễn phí'}${req}</div><div class="desc">${U.esc(sk.desc)}</div>`,
+        `<div class="card-head"><div class="name">${U.esc(sk.name)} ${realmBadge}</div></div><div class="meta">${sk.price ? '◆ ' + U.fmt(sk.price) + ' Linh Thạch' : 'Miễn phí'}${req}</div><div class="desc">${U.esc(sk.desc)}</div>`,
         3 * 80, 110,
         (ctx, t) => SKIN_POSES.forEach(([, aim, st], i) =>
-          TT.Character.draw(ctx, 40 + i * 80, 76, aim, t, Object.assign({ color: opt.color, realm: opt.realm, skin: sk.id, sword: opt.sword }, st))),
-        () => { opt.skin = sk.id; window.scrollTo({ top: 0, behavior: 'smooth' }); });
+          TT.Character.draw(ctx, 40 + i * 80, 76, aim, t, Object.assign({ color: opt.color, sectColor: previewColor(), realm: Math.max(opt.realm, sk.realm || 0), skin: sk.id, sword: opt.sword }, st))),
+        () => {
+          opt.skin = sk.id;
+          if (sk.realm && opt.realm < sk.realm) {
+            opt.realm = sk.realm;
+            const realmGroup = document.getElementById('g-realm');
+            if (realmGroup) {
+              const btns = realmGroup.querySelectorAll('button');
+              btns.forEach((b, i) => b.classList.toggle('on', i === opt.realm));
+            }
+          }
+          if (opt.tab === 'all') window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
     });
 
-    // Kiếm hình
+    // ---------------------------------------------------------- MỤC: THẦN DỰC & THẦN LUÂN
+    const halosWrap = document.getElementById('halos-cards');
+    if (halosWrap && D.halos) {
+      D.halos.forEach(h => {
+        makeCard(halosWrap,
+          `<div class="card-head"><div class="name" style="color:${h.color}">✨ ${U.esc(h.name)}</div></div>
+           <div class="meta">◆ ${U.fmt(h.price)} Linh Thạch · Cần ${D.realms[h.realm].name}</div>
+           <div class="desc">${U.esc(h.desc)}</div>`,
+          190, 130,
+          (ctx, t) => {
+            TT.Character.draw(ctx, 95, 92, { x: 95, y: 150 }, t, {
+              skin: opt.skin, sword: opt.sword, haloId: h.id, color: h.color, realm: Math.max(opt.realm, h.realm)
+            });
+          },
+          () => {
+            opt.haloId = h.id;
+            opt.color = h.color;
+            if (h.realm && opt.realm < h.realm) opt.realm = h.realm;
+          }
+        );
+      });
+      if (D.wings) {
+        D.wings.forEach(w => {
+          makeCard(halosWrap,
+            `<div class="card-head"><div class="name" style="color:${w.color}">🪽 ${U.esc(w.name)}</div></div>
+             <div class="meta">◆ ${U.fmt(w.price)} Linh Thạch · Cần ${D.realms[w.realm].name}</div>
+             <div class="desc">${U.esc(w.desc)}</div>`,
+            190, 130,
+            (ctx, t) => {
+              TT.Character.draw(ctx, 95, 92, { x: 95, y: 150 }, t, {
+                skin: opt.skin, sword: opt.sword, wingsId: w.id, color: w.color, realm: Math.max(opt.realm, w.realm)
+              });
+            },
+            () => {
+              opt.wingsId = w.id;
+              if (w.realm && opt.realm < w.realm) opt.realm = w.realm;
+            }
+          );
+        });
+      }
+    }
+
+    // ---------------------------------------------------------- MỤC: TIÊN NHÃN (MẮT)
+    const eyesWrap = document.getElementById('eyes-cards');
+    if (eyesWrap && D.eyes) {
+      D.eyes.forEach(eye => {
+        makeCard(eyesWrap,
+          `<div class="card-head"><div class="name">👁️ ${U.esc(eye.name)}</div></div>
+           <div class="meta">Lưới: Cột ${eye.col + 1}, Hàng ${eye.row + 1} (eyes_grid.jpg)</div>
+           <div class="desc">${U.esc(eye.desc)}</div>`,
+          190, 110,
+          (ctx, t) => {
+            // Khung phóng to chi tiết cặp mắt bên trái
+            ctx.save();
+            ctx.fillStyle = 'rgba(8, 12, 20, 0.7)';
+            ctx.fillRect(8, 18, 68, 68);
+            ctx.strokeStyle = '#283246';
+            ctx.strokeRect(8, 18, 68, 68);
+            TT.Art.drawEyes(ctx, 42, 52, 56, 26, eye, t, false);
+            ctx.restore();
+
+            // Nhân vật đeo mắt bên phải
+            TT.Character.draw(ctx, 136, 82, { x: 136, y: 150 }, t, {
+              skin: opt.skin, sword: opt.sword, eyeId: eye, realm: 1
+            });
+          },
+          () => {
+            opt.eyeId = eye.id;
+          }
+        );
+      });
+    }
+
+    // ---------------------------------------------------------- MỤC: HÓA THẦN (NGOẠI TRANG)
+    const avatarsWrap = document.getElementById('avatars-cards');
+    if (avatarsWrap && D.avatarSkins) {
+      D.avatarSkins.forEach(a => {
+        makeCard(avatarsWrap,
+          `<div class="card-head"><div class="name">👑 ${U.esc(a.name)}</div></div>
+           <div class="meta">◆ ${U.fmt(a.price)} Linh Thạch · Cần ${D.realms[a.realm].name}</div>
+           <div class="desc">${U.esc(a.desc)}</div>`,
+          190, 150,
+          (ctx, t) => {
+            TT.Art.drawAvatar(ctx, 95, 130, 95, 125, a.id, t, false);
+          },
+          () => {
+            opt.avatarSkin = a.id;
+            if (a.realm && opt.realm < a.realm) opt.realm = a.realm;
+          }
+        );
+      });
+    }
+
+    // ---------------------------------------------------------- MỤC: HUY HIỆU & SKILL BAR
+    const badgesWrap = document.getElementById('badges-cards');
+    if (badgesWrap) {
+      // 1. Huy hiệu Ngũ Đại Tông Môn (clan_badges.jpg)
+      D.sects.forEach(s => {
+        const col = s.badge ? s.badge.col : 2, row = s.badge ? s.badge.row : 1;
+        makeCard(badgesWrap,
+          `<div class="card-head"><div class="name" style="color:${s.color}">🏯 ${U.esc(s.name)} (Huy Hiệu)</div></div>
+           <div class="meta">${U.esc(s.alignment)} · ${U.esc(s.discipline)}</div>
+           <div class="desc">Huy hiệu tông môn trấn phái, cắt từ clan_badges.jpg [Cột ${col + 1}, Hàng ${row + 1}].</div>`,
+          160, 110,
+          (ctx, t) => {
+            const sp = TT.Art.getClanBadge(col, row);
+            if (sp && sp.canvas) {
+              ctx.drawImage(sp.canvas, 80 - 32, 55 - 32, 64, 64);
+            }
+          }
+        );
+      });
+
+      // 2. Huy hiệu Tứ Đại Gia Tộc (clan_badges.jpg)
+      D.clans.forEach(c => {
+        const col = c.badge ? c.badge.col : 0, row = c.badge ? c.badge.row : 0;
+        makeCard(badgesWrap,
+          `<div class="card-head"><div class="name" style="color:${c.color}">🛡️ ${U.esc(c.name)} (Ấn Ký)</div></div>
+           <div class="meta">${U.esc(c.epithet)} · ${U.esc(c.title)}</div>
+           <div class="desc">Huyết mạch thượng cổ truyền thừa của ${U.esc(c.title)}.</div>`,
+          160, 110,
+          (ctx, t) => {
+            const sp = TT.Art.getClanBadge(col, row);
+            if (sp && sp.canvas) {
+              ctx.drawImage(sp.canvas, 80 - 32, 55 - 32, 64, 64);
+            }
+          }
+        );
+      });
+
+      // 3. Ấn Ký Ngũ Hành Nguyên Tố (ninja_elements.jpg)
+      const elementList = [
+        { name: 'Ấn Ký Hỏa Diệm', col: 0, row: 0, color: '#f97316', desc: 'Nguyên tố Chân Hỏa thiêu rụi tà chướng.' },
+        { name: 'Ấn Ký Lôi Đình', col: 1, row: 0, color: '#a855f7', desc: 'Nguyên tố Thiên Lôi dẫn điện cuồng nộ.' },
+        { name: 'Ấn Ký Phong Bão', col: 2, row: 0, color: '#38bdf8', desc: 'Nguyên tố Cuồng Phong cắt nát không gian.' },
+        { name: 'Ấn Ký Địa Thạch', col: 3, row: 0, color: '#ca8a04', desc: 'Nguyên tố Hậu Thổ phòng ngự tuyệt đối.' },
+        { name: 'Ấn Ký Thủy Triều', col: 4, row: 0, color: '#06b6d4', desc: 'Nguyên tố Bích Hải thanh tẩy vạn vật.' }
+      ];
+      elementList.forEach(el => {
+        makeCard(badgesWrap,
+          `<div class="card-head"><div class="name" style="color:${el.color}">🌀 ${U.esc(el.name)}</div></div>
+           <div class="meta">Ấn Ký Nguyên Tố (ninja_elements.jpg)</div>
+           <div class="desc">${U.esc(el.desc)}</div>`,
+          160, 110,
+          (ctx, t) => {
+            const sp = TT.Art.getElementBadge(el.col, el.row);
+            if (sp && sp.canvas) {
+              ctx.drawImage(sp.canvas, 80 - 32, 55 - 32, 64, 64);
+            }
+          }
+        );
+      });
+
+      // 4. Icon Kỹ Năng HUD (skill_icons.jpg)
+      const skillShowcase = [
+        { name: 'Ngự Kiếm Thuật [LMB]', col: 1, row: 0, desc: 'Phóng phi kiếm xoay tròn xuyên phá hàng ngũ kẻ địch.' },
+        { name: 'Lôi Độn Thân Pháp [Space]', col: 3, row: 5, desc: 'Hóa thành tia chớp lướt nhanh né đòn hiểm.' },
+        { name: 'Kiếm Thuẫn Hộ Thể [RMB]', col: 5, row: 2, desc: 'Tạo kiếm trận chắn đạn và giảm 50% sát thương.' },
+        { name: 'Vạn Kiếm Quy Tông [Tuyệt Học]', col: 2, row: 3, desc: 'Triệu hồi mưa kiếm quét sạch yêu ma chiến trường.' },
+        { name: 'Huyết Hải Cuồng Đào [Ma Đạo]', col: 0, row: 4, desc: 'Vòng xoáy huyết sát hút sinh lực vạn vật xung quanh.' },
+        { name: 'Cửu Thiên Thần Lôi [Lôi Pháp]', col: 4, row: 7, desc: 'Giáng sấm sét chu thiên hủy diệt toàn bộ yêu thú.' }
+      ];
+      skillShowcase.forEach(sk => {
+        makeCard(badgesWrap,
+          `<div class="card-head"><div class="name">⚡ ${U.esc(sk.name)}</div></div>
+           <div class="meta">Icon Skill Bar (Cột ${sk.col + 1}, Hàng ${sk.row + 1})</div>
+           <div class="desc">${U.esc(sk.desc)}</div>`,
+          160, 110,
+          (ctx, t) => {
+            const sp = TT.Art.getSkillIcon(sk.col, sk.row);
+            if (sp && sp.canvas) {
+              ctx.drawImage(sp.canvas, 80 - 32, 55 - 32, 64, 64);
+            }
+          }
+        );
+      });
+    }
     const swordWrap = document.getElementById('sword-skins');
-    D.swordSkins.forEach(sk => {
-      const req = sk.realm ? ` · Cần ${D.realms[sk.realm].name}` : '';
-      makeCard(swordWrap,
-        `<div class="name">${U.esc(sk.name)}</div><div class="meta">${sk.price ? '◆ ' + U.fmt(sk.price) + ' Linh Thạch' : 'Miễn phí'}${req}</div><div class="desc">${U.esc(sk.desc)}</div>`,
-        360, 190,
-        (ctx, t) => {
-          ctx.fillStyle = '#7d8aa0'; ctx.font = '9px "Segoe UI", sans-serif';
-          ctx.textAlign = 'center'; ctx.fillText('NHÂN VẬT ĐANG CẦM', 112, 16);
-          ctx.fillText('CHI TIẾT KIẾM', 286, 16);
-          SKIN_POSES.forEach(([, aim, st], i) => {
-            TT.Character.draw(ctx, 42 + i * 70, 134, aim, t, Object.assign({ color: opt.color, realm: opt.realm, skin: opt.skin, sword: sk.id }, st));
-          });
-          ctx.save(); ctx.globalCompositeOperation = 'lighter';
-          TT.Art.glow(ctx, 286, 101, 28, sk.pal.gem || sk.pal.gold || opt.color, 0.3);
-          ctx.restore();
-          TT.Art.drawSword(ctx, 286, 101, -Math.PI / 2, 64, opt.color, 1, sk);
-        },
-        () => { opt.sword = sk.id; window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    const badgeWeaponCount = document.getElementById('badge-weapon-count');
+
+    const RARITY_NAMES = { Hiem: 'Hiếm', CucPham: 'Cực Phẩm', ThanBinh: 'Thần Binh', TienKhi: 'Tiên Khí' };
+
+    function updateWeaponCount() {
+      if (badgeWeaponCount) badgeWeaponCount.textContent = D.swordSkins.length;
+      document.getElementById('metric-weapon-count').textContent = D.swordSkins.length;
+      updateFilterCounts();
+    }
+
+    function updateFilterCounts() {
+      const countAll = D.swordSkins.length;
+      const countS1 = D.swordSkins.filter(s => s.sheet === 'sheet1').length;
+      const countS2 = D.swordSkins.filter(s => s.sheet === 'sheet2').length;
+      const countS3 = D.swordSkins.filter(s => s.sheet === 'sheet3').length;
+      const countOther = countAll - countS1 - countS2 - countS3;
+      const elAll = document.getElementById('count-all');
+      const elS1 = document.getElementById('count-s1');
+      const elS2 = document.getElementById('count-s2');
+      const elS3 = document.getElementById('count-s3');
+      const elOther = document.getElementById('count-other');
+      if (elAll) elAll.textContent = countAll;
+      if (elS1) elS1.textContent = countS1;
+      if (elS2) elS2.textContent = countS2;
+      if (elS3) elS3.textContent = countS3;
+      if (elOther) elOther.textContent = countOther;
+    }
+
+    let activeWeaponFilter = 'all';
+    function filterWeapons(type) {
+      activeWeaponFilter = type;
+      [...document.querySelectorAll('.filter-pill')].forEach(p => p.classList.toggle('on', p.dataset.filter === type));
+      [...swordWrap.querySelectorAll('.card')].forEach(card => {
+        const sh = card.dataset.sheet;
+        if (type === 'all') card.style.display = '';
+        else if (type === 'sheet1') card.style.display = sh === 'sheet1' ? '' : 'none';
+        else if (type === 'sheet2') card.style.display = sh === 'sheet2' ? '' : 'none';
+        else if (type === 'sheet3') card.style.display = sh === 'sheet3' ? '' : 'none';
+        else if (type === 'crystal') card.style.display = (sh === 'crystal' || sh === 'other' || !sh) ? '' : 'none';
+      });
+    }
+
+    document.querySelectorAll('.filter-pill').forEach(btn => {
+      btn.onclick = () => filterWeapons(btn.dataset.filter);
     });
 
-    // NPC
+    function createSwordCard(sk, prepend) {
+      const req = sk.realm ? ` · Cần ${D.realms[sk.realm].name}` : '';
+      const isCustom = !!sk.custom;
+      const customBadge = isCustom ? '<span class="badge-custom">Tự tạo</span>' : '';
+      const rarityBadge = sk.rarity ? `<span class="badge-rarity rarity-${sk.rarity}">${RARITY_NAMES[sk.rarity] || sk.rarity}</span>` : '';
+      const sheetBadge = sk.sheet ? `<span class="badge-sheet">${sk.sheet.toUpperCase()}</span>` : (sk.sprite ? `<span class="badge-sheet">SPRITE</span>` : '');
+      const delBtn = isCustom ? `<button class="btn-del-weapon" data-id="${U.esc(sk.id)}" title="Xóa vũ khí tự tạo này">🗑️ Xóa</button>` : '';
+
+      const html = `
+        <div class="card-head">
+          <div class="name">${U.esc(sk.name)} ${rarityBadge} ${sheetBadge} ${customBadge}</div>
+          ${delBtn}
+        </div>
+        <div class="meta">${sk.price ? '◆ ' + U.fmt(sk.price) + ' Linh Thạch' : 'Miễn phí'}${req}</div>
+        <div class="desc">${U.esc(sk.desc || '')}</div>
+      `;
+
+      const card = makeCard(swordWrap, html, 360, 190, (ctx, t) => {
+        ctx.fillStyle = '#7d8aa0'; ctx.font = '9px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center'; ctx.fillText('NHÂN VẬT ĐANG CẦM', 112, 16);
+        ctx.fillText('CẬN CẢNH VŨ KHÍ', 286, 16);
+        SKIN_POSES.forEach(([, aim, st], i) => {
+          TT.Character.draw(ctx, 42 + i * 70, 134, aim, t, Object.assign({ color: opt.color, sectColor: previewColor(), realm: opt.realm, skin: opt.skin, sword: sk.id }, st));
+        });
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const glowCol = sk.glowColor || (sk.pal && (sk.pal.gem || sk.pal.gold)) || opt.color;
+        TT.Art.glow(ctx, 286, 101, 32, glowCol, 0.4);
+        ctx.restore();
+        TT.Art.drawSword(ctx, 286, 101, -Math.PI / 2, 68, opt.color, 1, sk, t);
+      }, () => {
+        opt.sword = sk.id;
+        if (opt.tab === 'all') window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      card.dataset.sheet = sk.sheet || (sk.sprite ? 'crystal' : 'other');
+
+      if (prepend && swordWrap.firstChild && swordWrap.firstChild !== card) {
+        swordWrap.insertBefore(card, swordWrap.firstChild);
+      }
+
+      if (isCustom) {
+        const btnDel = card.querySelector('.btn-del-weapon');
+        if (btnDel) {
+          btnDel.onclick = (e) => {
+            e.stopPropagation();
+            if (confirm(`Bạn có chắc muốn xóa vũ khí "${sk.name}" không?`)) {
+              deleteCustomWeapon(sk.id, card);
+            }
+          };
+        }
+      }
+      return card;
+    }
+
+    // Tải và khởi tạo vũ khí tự lưu trong LocalStorage
+    function loadSavedCustomWeapons() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          list.forEach(item => {
+            if (!D.swordSkins.some(x => x.id === item.id)) {
+              if (item.sprite && typeof Image !== 'undefined') {
+                const img = new Image();
+                img.src = item.sprite;
+                item.customImg = img;
+              }
+              item.custom = true;
+              D.swordSkins.push(item);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Lỗi đọc vũ khí đã lưu:', err);
+      }
+    }
+
+    function saveCustomWeaponsToStorage() {
+      try {
+        const customList = D.swordSkins.filter(x => x.custom).map(x => ({
+          id: x.id, name: x.name, price: x.price, realm: x.realm, shape: x.shape,
+          sprite: typeof x.sprite === 'string' ? x.sprite : (x.customImg ? x.customImg.src : undefined),
+          desc: x.desc, pal: x.pal
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(customList));
+      } catch (err) {
+        console.warn('Lỗi ghi vũ khí vào LocalStorage:', err);
+      }
+    }
+
+    function deleteCustomWeapon(id, cardElem) {
+      const idx = D.swordSkins.findIndex(x => x.id === id);
+      if (idx !== -1) {
+        D.swordSkins.splice(idx, 1);
+        saveCustomWeaponsToStorage();
+        if (cardElem) cardElem.remove();
+        const cIdx = cards.findIndex(c => c.div === cardElem);
+        if (cIdx !== -1) cards.splice(cIdx, 1);
+        if (opt.sword === id) opt.sword = D.swordSkins[0].id;
+        updateWeaponCount();
+      }
+    }
+
+    loadSavedCustomWeapons();
+    D.swordSkins.forEach(sk => createSwordCard(sk, false));
+    updateWeaponCount();
+
+    // ---------------------------------------------------------- 4. LUYỆN KHÍ ĐÀI (ADD WEAPON STUDIO)
+    const btnToggleForge = document.getElementById('btn-toggle-forge');
+    const btnCloseForge = document.getElementById('btn-close-forge');
+    const forgePanel = document.getElementById('forge-panel');
+    const btnToggleGuide = document.getElementById('btn-toggle-guide');
+    const guidePanel = document.getElementById('guide-panel');
+
+    const inpName = document.getElementById('new-w-name');
+    const inpId = document.getElementById('new-w-id');
+    const selRealm = document.getElementById('new-w-realm');
+    const inpPrice = document.getElementById('new-w-price');
+    const selShape = document.getElementById('new-w-shape');
+    const spriteOptions = document.getElementById('forge-sprite-options');
+    const inpFile = document.getElementById('new-w-file');
+    const inpSpritePath = document.getElementById('new-w-sprite-path');
+    const imgPreview = document.getElementById('forge-img-preview');
+    const inpDesc = document.getElementById('new-w-desc');
+
+    const colBlade = document.getElementById('new-w-col-blade');
+    const colBladeShade = document.getElementById('new-w-col-bladeshade');
+    const colHilt = document.getElementById('new-w-col-hilt');
+    const colGold = document.getElementById('new-w-col-gold');
+    const colGem = document.getElementById('new-w-col-gem');
+
+    const btnForgeSubmit = document.getElementById('btn-forge-submit');
+    const btnForgeExport = document.getElementById('btn-forge-export');
+    const btnForgeClearCustom = document.getElementById('btn-forge-clear-custom');
+    const codeBox = document.getElementById('forge-code-box');
+    const codeContent = document.getElementById('forge-code-content');
+    const btnCopyCode = document.getElementById('btn-copy-code');
+
+    let customImageDataUrl = '';
+    let customImageLoadedObj = null;
+
+    btnToggleForge.onclick = () => forgePanel.classList.toggle('hidden');
+    btnCloseForge.onclick = () => forgePanel.classList.add('hidden');
+    btnToggleGuide.onclick = () => guidePanel.classList.toggle('hidden');
+
+    const sheetOptions = document.getElementById('forge-sheet-options');
+    const inpSx = document.getElementById('new-w-sx');
+    const inpSy = document.getElementById('new-w-sy');
+    const inpSw = document.getElementById('new-w-sw');
+    const inpSh = document.getElementById('new-w-sh');
+
+    // Chuyển đổi dáng kiếm -> hiện form sprite/sheet nếu chọn
+    selShape.onchange = () => {
+      const v = selShape.value;
+      const isCustom = v === 'custom_sprite';
+      const isSheet = v === 'sheet1' || v === 'sheet2' || v === 'sheet3';
+      spriteOptions.classList.toggle('hidden', !isCustom);
+      if (sheetOptions) sheetOptions.classList.toggle('hidden', !isSheet);
+    };
+
+    // Auto-slug ID khi nhập tên
+    function slugify(text) {
+      return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    }
+    let idManuallyEdited = false;
+    inpId.oninput = () => { idManuallyEdited = true; };
+    inpName.oninput = () => {
+      if (!idManuallyEdited) {
+        inpId.value = slugify(inpName.value) || 'VU_KHI_MOI';
+      }
+    };
+
+    // Chọn file ảnh từ máy
+    inpFile.onchange = (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        customImageDataUrl = evt.target.result;
+        imgPreview.src = customImageDataUrl;
+        const img = new Image();
+        img.onload = () => { customImageLoadedObj = img; };
+        img.src = customImageDataUrl;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    inpSpritePath.oninput = () => {
+      const val = inpSpritePath.value.trim();
+      if (val) {
+        imgPreview.src = val;
+        const img = new Image();
+        img.onload = () => { customImageLoadedObj = img; };
+        img.src = val;
+      }
+    };
+
+    // Tạo object vũ khí từ form
+    function buildWeaponObject() {
+      const name = (inpName && inpName.value ? inpName.value.trim() : '') || 'Thần Binh Vô Danh';
+      const id = slugify(inpId && inpId.value ? inpId.value.trim() : '') || ('KIEM_' + Date.now());
+      const shapeVal = (selShape && selShape.value) ? selShape.value : 'crystal_sword';
+      const isSheet = shapeVal === 'sheet1' || shapeVal === 'sheet2' || shapeVal === 'sheet3';
+      const shape = isSheet || shapeVal === 'custom_sprite' ? 'sprite' : shapeVal;
+      const price = Math.max(0, parseInt(inpPrice && inpPrice.value ? inpPrice.value : 0, 10) || 0);
+      const realm = parseInt(selRealm && selRealm.value ? selRealm.value : 0, 10) || 0;
+      const desc = (inpDesc && inpDesc.value ? inpDesc.value.trim() : '') || 'Cực phẩm thần binh bảo kiếm.';
+      const cBlade = (colBlade && colBlade.value) ? colBlade.value : '#f0e6ff';
+      const cBladeShade = (colBladeShade && colBladeShade.value) ? colBladeShade.value : '#9b59b6';
+      const cHilt = (colHilt && colHilt.value) ? colHilt.value : '#2c1a4d';
+      const cGold = (colGold && colGold.value) ? colGold.value : '#ffd700';
+      const cGem = (colGem && colGem.value) ? colGem.value : '#b48cff';
+
+      const weapon = {
+        id,
+        name,
+        price,
+        realm,
+        shape,
+        desc,
+        custom: true,
+        pal: {
+          blade: cBlade,
+          bladeShade: cBladeShade,
+          hilt: cHilt,
+          gold: cGold,
+          goldHi: '#ffffff',
+          goldDark: cHilt,
+          gem: cGem
+        }
+      };
+
+      if (isSheet) {
+        weapon.sheet = shapeVal;
+        weapon.sx = parseInt(inpSx && inpSx.value ? inpSx.value : 0, 10);
+        weapon.sy = parseInt(inpSy && inpSy.value ? inpSy.value : 0, 10);
+        weapon.sw = parseInt(inpSw && inpSw.value ? inpSw.value : 100, 10);
+        weapon.sh = parseInt(inpSh && inpSh.value ? inpSh.value : 400, 10);
+        weapon.baseAngleOffset = shapeVal === 'sheet1' ? -Math.PI / 2 : (shapeVal === 'sheet2' ? 1.8118 : Math.PI / 2);
+        weapon.pivotX = 0.50;
+        weapon.pivotY = shapeVal === 'sheet1' ? 0.90 : (shapeVal === 'sheet2' ? 0.08 : 0.09);
+        weapon.bladeLen = weapon.sh;
+        weapon.glowColor = cGem;
+      } else if (shapeVal === 'custom_sprite') {
+        if (customImageDataUrl) {
+          weapon.sprite = customImageDataUrl;
+          weapon.customImg = customImageLoadedObj;
+        } else if (inpSpritePath && inpSpritePath.value && inpSpritePath.value.trim()) {
+          weapon.sprite = inpSpritePath.value.trim();
+          if (customImageLoadedObj) weapon.customImg = customImageLoadedObj;
+        }
+      }
+      return weapon;
+    }
+
+    // Nhấn "Thêm Ngay Vào Thư Viện"
+    btnForgeSubmit.onclick = () => {
+      const weapon = buildWeaponObject();
+      const existingIdx = D.swordSkins.findIndex(x => x.id === weapon.id);
+      if (existingIdx !== -1) {
+        if (!confirm(`Mã ID "${weapon.id}" đã tồn tại. Bạn có muốn ghi đè vũ khí này không?`)) return;
+        D.swordSkins.splice(existingIdx, 1);
+        const oldCard = document.querySelector(`.btn-del-weapon[data-id="${weapon.id}"]`);
+        if (oldCard && oldCard.closest('.card')) oldCard.closest('.card').remove();
+      }
+
+      D.swordSkins.unshift(weapon);
+      saveCustomWeaponsToStorage();
+      const newCard = createSwordCard(weapon, true);
+      layout();
+      updateWeaponCount();
+      opt.sword = weapon.id;
+
+      // Hiệu ứng báo thành công
+      newCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      newCard.style.outline = '2px solid #ffd23f';
+      setTimeout(() => { newCard.style.outline = 'none'; }, 2000);
+      alert(`Đã thêm thành công vũ khí "${weapon.name}" vào thư viện!`);
+    };
+
+    // Nhấn "Xuất Mã JavaScript"
+    btnForgeExport.onclick = () => {
+      const weapon = buildWeaponObject();
+      const sheetPart = weapon.sheet
+        ? `sheet: '${weapon.sheet}', sx: ${weapon.sx}, sy: ${weapon.sy}, sw: ${weapon.sw}, sh: ${weapon.sh}, baseAngleOffset: ${weapon.baseAngleOffset}, pivotX: ${weapon.pivotX}, pivotY: ${weapon.pivotY}, bladeLen: ${weapon.bladeLen},\n      `
+        : (weapon.sprite ? `sprite: '${weapon.sprite.length > 80 ? 'assets/ten_file_anh.png' : weapon.sprite}',\n      ` : '');
+      const code = `    { id: '${weapon.id}', name: '${weapon.name}', price: ${weapon.price}, realm: ${weapon.realm}, shape: '${weapon.shape}',
+      ${sheetPart}desc: '${weapon.desc.replace(/'/g, "\\'")}',
+      pal: { blade: '${weapon.pal.blade}', bladeShade: '${weapon.pal.bladeShade}', hilt: '${weapon.pal.hilt}', gold: '${weapon.pal.gold}', goldHi: '#ffffff', goldDark: '${weapon.pal.goldDark}', gem: '${weapon.pal.gem}' } }`;
+
+      codeContent.textContent = code;
+      codeBox.classList.remove('hidden');
+      codeBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    btnCopyCode.onclick = () => {
+      navigator.clipboard.writeText(codeContent.textContent).then(() => {
+        const orig = btnCopyCode.textContent;
+        btnCopyCode.textContent = '✓ Đã sao chép!';
+        setTimeout(() => { btnCopyCode.textContent = orig; }, 2000);
+      });
+    };
+
+    // Xóa toàn bộ vũ khí tự tạo
+    btnForgeClearCustom.onclick = () => {
+      if (confirm('Bạn có chắc muốn xóa tất cả vũ khí tự tạo đã lưu không?')) {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+      }
+    };
+
+    // ---------------------------------------------------------- 5. NPC TÔNG MÔN
     const npcWrap = document.getElementById('npcs');
     D.npcs.forEach((n, idx) => {
       const acts = (n.actions || []).map(a => a[0]).join(', ');
@@ -175,7 +1369,7 @@
         3 * 80, 110,
         (ctx, t) => SKIN_POSES.forEach(([, aim, st], i) =>
           TT.Character.draw(ctx, 40 + i * 80, 76, aim, t + idx, Object.assign({ skin: n.look, spirit: !!n.aura,
-            color: n.aura ? n.aura.color : undefined, realm: n.aura ? n.aura.realm * 0.4 : 0 }, st))));
+            color: n.aura ? n.aura.color : undefined, sectColor: previewColor(), realm: n.aura ? n.aura.realm * 0.4 : 0 }, st))));
     });
 
     function biomesOf(type) {
@@ -183,19 +1377,21 @@
       return names.length ? names.join(', ') : '—';
     }
 
-    // Yêu thú
+    // ---------------------------------------------------------- 6. YÊU THÚ
     const enemyWrap = document.getElementById('enemies');
     Object.keys(D.enemies).forEach((type, idx) => {
       const def = D.enemies[type];
       const big = def.boss;
-      const r = def.radiusM * PPM, box = TT.Monsters.TYPES[type].box;
+      const T = TT.Monsters && TT.Monsters.TYPES && TT.Monsters.TYPES[type];
+      const box = (T && T.box) || [3.0, 2.6];
+      const r = def.radiusM * PPM;
       const w = Math.max(big ? 220 : 150, Math.ceil(box[0] * r) + 24), h = Math.max(90, Math.ceil(box[1] * r) + 18);
       const e = { type, def, x: w / 2, y: h - 8 - r * 0.75, vx: 1, hp: 1, maxHp: 1, hitFlash: 0, seed: idx * 3.1 };
       const card = makeCard(enemyWrap,
         `<div class="name" style="color:${def.eye}">${U.esc(def.name)}</div>
          <div class="meta">${AI_NAME[def.ai]} · HP ${def.hp} · Công ${def.atk} · Thủ ${def.def} · Tốc ${def.speedMps} m/s</div>
          <div class="desc">${U.esc(def.desc || '')}</div>
-         <div class="tags">Xuất hiện: ${biomesOf(type)}${def.projSlow ? ' · Đạn làm chậm' : ''}${def.chargeEvery ? ' · Lao húc' : ''}${def.ringCount ? ' · Xả ' + def.ringCount + ' đạn vòng' : ''}</div>
+         <div class="tags">Xuất hiện: ${biomesOf(type) !== '—' ? biomesOf(type) : (def.boss ? 'Thượng Cổ Bí Cảnh' : 'Quân Đoàn Hắc Ảnh / Dị Giới')}${def.projSlow ? ' · Đạn làm chậm' : ''}${def.chargeEvery ? ' · Lao húc' : ''}${def.ringCount ? ' · Xả ' + def.ringCount + ' đạn vòng' : ''}</div>
          <div class="tags">Tu vi ${def.tuvi} · Linh Thạch ${def.linhThach} (nhân theo cảnh giới)</div>`,
         w, h, (ctx, t) => {
           e.vx = Math.sin(t * 0.5 + idx) >= 0 ? 1 : -1;
@@ -205,7 +1401,68 @@
       if (big) card.classList.add('wide');
     });
 
-    // ---------------------------------------------------------- vẽ
+    // ---------------------------------------------------------- 7. TÔNG MÔN & GIA TỘC
+    const sectPreviewWrap = document.getElementById('sect-previews');
+    const clanPreviewWrap = document.getElementById('clan-previews');
+    D.sects.forEach(sect => {
+      const buffs = [];
+      const b = sect.buffs;
+      if (b.swordDamagePct) buffs.push(`+${b.swordDamagePct}% sát thương Ngự Kiếm`);
+      if (b.shieldMpCostReduction) buffs.push(`-${Math.round(b.shieldMpCostReduction * 100)}% MP Kiếm Thuẫn`);
+      if (b.lifesteal) buffs.push(`Hút máu ${Math.round(b.lifesteal * 100)}%`);
+      if (b.lowHpDamagePct) buffs.push(`Tối đa +${b.lowHpDamagePct}% sát thương khi thấp HP`);
+      if (b.moveSpeedPct) buffs.push(`+${b.moveSpeedPct}% tốc độ · mỗi ${b.chainEvery} đòn giật sét`);
+      if (b.dashCooldownReduction) buffs.push(`-${Math.round(b.dashCooldownReduction * 100)}% hồi chiêu Lôi Độn`);
+      if (b.danDocGainMultiplier) buffs.push(`-${Math.round((1 - b.danDocGainMultiplier) * 100)}% Đan Độc · +${b.potionEffectPct}% đan`);
+      if (b.hpRegenPctPerSec) buffs.push(`Hồi ${b.hpRegenPctPerSec * 100}% HP tối đa/giây`);
+      if (b.attackSlowPct) buffs.push(`Làm chậm ${b.attackSlowPct}% · ${Math.round(b.freezeChance * 100)}% đóng băng`);
+      if (b.shieldDamageReductionPct) buffs.push(`+${Math.round(b.shieldDamageReductionPct * 100)}% giảm sát thương Kiếm Thuẫn`);
+      const card = makeCard(sectPreviewWrap,
+        `<div class="name" style="color:${sect.color}">${U.esc(sect.name)}</div>
+         <div class="meta">${U.esc(sect.alignment)} · ${U.esc(sect.discipline)}</div>
+         <div class="desc">${U.esc(sect.description)}</div>
+         <div class="preview-affiliation">${buffs.map(U.esc).join('<br>')}<br><b>Tuyệt học:</b> ${U.esc(sect.ultimate.name)}</div>
+         <button class="preview-join">Xem thử Tông Môn</button>`,
+        3 * 80, 110,
+        (ctx, t) => SKIN_POSES.forEach(([, aim, st], i) =>
+          TT.Character.draw(ctx, 40 + i * 80, 76, aim, t, Object.assign({
+            color: sect.color, sectColor: sect.color, title: sect.shortName, titleColor: sect.color,
+            realm: opt.realm, skin: opt.skin, sword: opt.sword
+          }, st))));
+      card.style.setProperty('--card-color', sect.color);
+      card.querySelector('.preview-join').onclick = () => {
+        opt.previewSectId = sect.id; opt.previewClanId = null; opt.color = sect.color;
+        sectPreviewWrap.querySelectorAll('.card').forEach(item => item.classList.toggle('preview-selection', item === card));
+      };
+    });
+    D.clans.forEach(clan => {
+      const buffs = [];
+      const b = clan.buffs;
+      if (b.additionalSwords) buffs.push(`+${b.additionalSwords} phi kiếm · +${b.critRate}% chí mạng`);
+      if (b.attackPct) buffs.push(`+${b.attackPct}% sát thương · Thiêu đốt ${b.burnDamagePctPerSec}%/giây`);
+      if (b.linhThachDropPct) buffs.push(`+${b.linhThachDropPct}% Linh Thạch · giảm ${Math.round(b.shopDiscount * 100)}% giá`);
+      if (b.maxHpPct) buffs.push(`+${b.maxHpPct}% HP · giảm ${Math.round(b.damageReduction * 100)}% sát thương`);
+      if (b.lightningResistance) buffs.push(`Kháng Lôi Kiếp +${Math.round(b.lightningResistance * 100)}%`);
+      const card = makeCard(clanPreviewWrap,
+        `<div class="name" style="color:${clan.color}">${U.esc(clan.name)}</div>
+         <div class="meta">${U.esc(clan.epithet)} · ${U.esc(clan.title)}</div>
+         <div class="desc">${U.esc(clan.description)}</div>
+         <div class="preview-affiliation">${buffs.map(U.esc).join('<br>')}</div>
+         <button class="preview-join">Chọn Gia Nhập Ngay</button>`,
+        3 * 80, 110,
+        (ctx, t) => SKIN_POSES.forEach(([, aim, st], i) =>
+          TT.Character.draw(ctx, 40 + i * 80, 76, aim, t, Object.assign({
+            color: clan.color, sectColor: clan.color, title: clan.title, titleColor: clan.color,
+            realm: opt.realm, skin: opt.skin, sword: opt.sword
+          }, st))));
+      card.style.setProperty('--card-color', clan.color);
+      card.querySelector('.preview-join').onclick = () => {
+        opt.previewClanId = clan.id; opt.color = clan.color;
+        clanPreviewWrap.querySelectorAll('.card').forEach(item => item.classList.toggle('preview-selection', item === card));
+      };
+    });
+
+    // ---------------------------------------------------------- vòng lặp vẽ
     function layout() {
       for (const c of cards) { c.cv.width = c.w * opt.zoom; c.cv.height = c.h * opt.zoom; }
     }
@@ -214,6 +1471,8 @@
     function frame() {
       const t = (performance.now() - t0) / 1000;
       for (const c of cards) {
+        // Tối ưu hiệu năng: bỏ qua vẽ canvas thuộc tab đang ẩn
+        if (c.cv.offsetParent === null) continue;
         const ctx = c.cv.getContext('2d');
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         background(ctx, c.cv.width, c.cv.height);

@@ -96,7 +96,8 @@ window.TT = window.TT || {};
       st.recompute();
       this.player = { x: sizePx / 2, y: sizePx / 2, vx: 0, vy: 0, aim: 0, dashT: 0, dashCd: 0, dashDir: [0, 0],
         invuln: 0, shield: false, slow: 1, moving: false, hitCount: 0, dead: false,
-        castT: 0, hurtT: 0, mvx: 0, mvy: 0, ghosts: [], ghostT: 0, lastFrame: null };
+        castT: 0, hurtT: 0, mvx: 0, mvy: 0, ghosts: [], ghostT: 0, lastFrame: null,
+        sectUltimateCd: 0, sectUltimateState: null, sectBarrierT: 0 };
       this.rebuildSwords();
       this.cam.x = this.player.x - this.W / 2; this.cam.y = this.player.y - this.H / 2;
     }
@@ -345,6 +346,7 @@ window.TT = window.TT || {};
         case 'exit': UI.toast('Đã rời Bí Cảnh an toàn.'); this.enterDongPhu(); break;
         case 'tribulation': UI.openTribulationPrep(); break;
         case 'alchemy': UI.openMenu('alchemy'); break;
+        case 'weapons': UI.openMenu('weapons'); break;
         case 'skins': UI.openMenu('skins'); break;
         case 'dongphu': UI.openMenu('dongphu'); break;
         case 'help': UI.openHelp(); break;
@@ -362,9 +364,79 @@ window.TT = window.TT || {};
       if (!dx && !dy) { dx = Math.cos(p.aim); dy = Math.sin(p.aim); }
       const l = Math.hypot(dx, dy);
       p.dashDir = [dx / l, dy / l];
-      p.dashT = cfg.durationSec; p.dashCd = cfg.cooldownSec;
+      p.dashT = cfg.durationSec; p.dashCd = cfg.cooldownSec * (1 - st.stats.sectDashCooldownReduction);
       st.mp -= cfg.mpCost;
       for (let i = 0; i < 14; i++) this.spark(p.x, p.y, '#9fd8ff', 3, 0.4);
+    }
+
+    castSectUltimate() {
+      const st = this.state, p = this.player, sect = st.currentSect, cfg = D.sectSystem.ultimate;
+      if (this.scene.type !== 'bicanh' || p.dead) { TT.UI.toast('Tuyệt học chỉ thi triển được trong Bí Cảnh.'); return false; }
+      if (p.sectUltimateCd > 0) { TT.UI.toast(`Tuyệt học còn hồi chiêu ${p.sectUltimateCd.toFixed(1)} giây.`); return false; }
+      const mpCost = st.stats.maxMp * cfg.mpCostPct / 100;
+      if (st.mp < mpCost) { TT.UI.toast('Linh lực không đủ để thi triển tuyệt học.'); return false; }
+      st.mp -= mpCost;
+      p.sectUltimateCd = cfg.cooldownSec;
+      const range = (meters, enemy) => U.dist(p, enemy) <= meters * PPM;
+      const strike = (enemy, multiplier) => {
+        this.damageEnemy(enemy, st.stats.atk * multiplier, { noProc: true, noCrit: true });
+        return st.stats.atk * multiplier;
+      };
+      switch (sect.ultimate.id) {
+        case 'sword_storm': {
+          for (const e of this.scene.enemies) if (!e.dead && range(cfg.ranges.swordStormM, e)) strike(e, cfg.damageMultiplier);
+          this.scene.particles.push({ x: p.x, y: p.y, vx: 0, vy: 0, life: 0.45, max: 0.45, color: sect.color, size: cfg.ranges.swordStormM * PPM, add: true, ring: true });
+          break;
+        }
+        case 'blood_tide': {
+          let healing = 0;
+          for (const e of this.scene.enemies) {
+            if (!e.dead && range(cfg.ranges.bloodTideM, e)) healing += strike(e, cfg.damageMultiplier) * cfg.bloodHealPct;
+          }
+          st.hp = Math.min(st.stats.maxHp, st.hp + healing);
+          this.scene.particles.push({ x: p.x, y: p.y, vx: 0, vy: 0, life: 0.55, max: 0.55, color: sect.color, size: cfg.ranges.bloodTideM * PPM, add: true, ring: true });
+          break;
+        }
+        case 'thunderfall': {
+          const target = this.scene.enemies.filter(e => !e.dead)
+            .sort((a, b) => U.dist(a, p) - U.dist(b, p))[0];
+          if (!target) { st.mp += mpCost; p.sectUltimateCd = 0; TT.UI.toast('Không có mục tiêu trong tầm thần thức.'); return false; }
+          p.sectUltimateState = { id: sect.ultimate.id, x: target.x, y: target.y, remaining: cfg.multiStrikeCount, timer: 0 };
+          break;
+        }
+        case 'spring_blossom':
+          st.hp = Math.min(st.stats.maxHp, st.hp + st.stats.maxHp * cfg.springHealPct);
+          st.mp = Math.min(st.stats.maxMp, st.mp + st.stats.maxMp * cfg.springMpPct);
+          st.addDanDoc(-st.danDoc);
+          p.sectBarrierT = cfg.springBarrierSec;
+          this.scene.particles.push({ x: p.x, y: p.y, vx: 0, vy: 0, life: 0.8, max: 0.8, color: sect.color, size: 5 * PPM, add: true, ring: true });
+          break;
+        case 'absolute_zero':
+          for (const e of this.scene.enemies) {
+            if (!e.dead && range(cfg.ranges.absoluteZeroM, e)) e.freezeT = Math.max(e.freezeT || 0, sect.buffs.freezeDurationSec);
+          }
+          this.scene.particles.push({ x: p.x, y: p.y, vx: 0, vy: 0, life: 0.65, max: 0.65, color: sect.color, size: cfg.ranges.absoluteZeroM * PPM, add: true, ring: true });
+          break;
+      }
+      TT.UI.toast(`Thi triển ${sect.ultimate.name}!`);
+      return true;
+    }
+
+    updateSectUltimate(dt) {
+      const p = this.player, state = p.sectUltimateState;
+      if (!state) return;
+      state.timer -= dt;
+      if (state.timer > 0) return;
+      state.timer = D.sectSystem.ultimate.strikeIntervalSec;
+      const radius = D.sectSystem.ultimate.ranges.thunderfallM * PPM;
+      this.scene.particles.push({ x: state.x, y: state.y, vx: 0, vy: 0, life: 0.22, max: 0.22, color: D.sects.find(sect => sect.ultimate.id === state.id).color, size: radius, add: true, ring: true });
+      for (const e of this.scene.enemies) {
+        if (!e.dead && Math.hypot(e.x - state.x, e.y - state.y) <= radius) {
+          this.damageEnemy(e, this.state.stats.atk * D.sectSystem.ultimate.damageMultiplier, { noProc: true, noCrit: true });
+        }
+      }
+      state.remaining--;
+      if (state.remaining <= 0) p.sectUltimateState = null;
     }
 
     /** Dùng vật phẩm tiêu hao. Trả về true nếu dùng thành công. */
@@ -376,8 +448,9 @@ window.TT = window.TT || {};
       if (fx.danDoc < 0 && st.danDoc <= 0) { TT.UI.toast('Không có Đan độc để giải.'); return false; }
       if (fx.tuviPct && (st.atBottleneck() || st.realmDef.final)) { TT.UI.toast('Đang ở bình cảnh, Tụ Khí Đan vô dụng. Hãy Độ Kiếp!'); return false; }
       st.inventory.remove(id, 1);
-      if (fx.healPct) st.hp = Math.min(st.stats.maxHp, st.hp + st.stats.maxHp * fx.healPct);
-      if (fx.mpPct) st.mp = Math.min(st.stats.maxMp, st.mp + st.stats.maxMp * fx.mpPct);
+      const potionMultiplier = 1 + st.stats.sectPotionEffectPct / 100;
+      if (fx.healPct) st.hp = Math.min(st.stats.maxHp, st.hp + st.stats.maxHp * fx.healPct * potionMultiplier);
+      if (fx.mpPct) st.mp = Math.min(st.stats.maxMp, st.mp + st.stats.maxMp * fx.mpPct * potionMultiplier);
       if (fx.tuviPct) { const m = st.addTuvi(Math.ceil(st.tuviNeeded * fx.tuviPct)); if (m) this.onBreakthrough(m); }
       if (fx.danDoc) st.addDanDoc(fx.danDoc);
       if (this.player) for (let i = 0; i < 10; i++) this.spark(this.player.x, this.player.y, def.color, 2, 0.6);
@@ -411,6 +484,8 @@ window.TT = window.TT || {};
       if (this.swords.length !== st.stats.swords) this.rebuildSwords();
       this.mouse.wx = this.mouse.x + this.cam.x; this.mouse.wy = this.mouse.y + this.cam.y;
       if (!p.dead) this.updatePlayer(dt);
+      p.sectUltimateCd = Math.max(0, p.sectUltimateCd - dt);
+      this.updateSectUltimate(dt);
       this.updateSwords(dt);
       if (sc.npcs.length) this.updateNpcs(dt);
       if (sc.type === 'bicanh') this.updateBiCanh(dt);
@@ -457,6 +532,10 @@ window.TT = window.TT || {};
       p.aim = Math.atan2(this.mouse.wy - p.y, this.mouse.wx - p.x);
       p.dashCd = Math.max(0, p.dashCd - dt);
       p.invuln = Math.max(0, p.invuln - dt);
+      p.sectBarrierT = Math.max(0, p.sectBarrierT - dt);
+      if (st.stats.sectHpRegenPctPerSec > 0) {
+        st.hp = Math.min(st.stats.maxHp, st.hp + st.stats.maxHp * st.stats.sectHpRegenPctPerSec * dt);
+      }
       p.castT = Math.max(0, p.castT - dt);
       p.hurtT = Math.max(0, p.hurtT - dt);
       for (const gh of p.ghosts) gh.life -= dt;
@@ -464,7 +543,7 @@ window.TT = window.TT || {};
       st.mp = Math.min(st.stats.maxMp, st.mp + P.mpRegenPerSec * dt);
       // Kiếm Thuẫn
       p.shield = this.mouse.right && st.mp > 1;
-      if (p.shield) st.mp -= P.shield.mpPerSec * dt;
+      if (p.shield) st.mp -= P.shield.mpPerSec * (1 - st.stats.sectShieldMpCostReduction) * dt;
       p.slowT = Math.max(0, (p.slowT || 0) - dt);
       if (p.slowT > 0) p.slow *= 1 - p.slowAmt;
       let speed = st.stats.moveSpeed * PPM * p.slow * (p.shield ? 1 - P.shield.slow : 1);
@@ -539,11 +618,16 @@ window.TT = window.TT || {};
         if (s.state === 'orbit') {
           const rad = (p.shield ? 0.9 : 1.1) * PPM;
           const a = (i / n) * Math.PI * 2 + this.t * (p.shield ? 6 : 1.6);
-          const tx = p.x + Math.cos(a) * rad, ty = p.y + Math.sin(a) * rad * 0.7 - 10;
+          const isMoving = p.moving;
+          const freq = isMoving ? 10 : 3.5;
+          const amp = isMoving ? 3.5 : 1.8;
+          const bob = Math.sin(this.t * freq + i * 1.5) * amp;
+          const tx = p.x + Math.cos(a) * rad, ty = p.y + Math.sin(a) * rad * 0.7 - 10 + bob;
           s.x = U.lerp(s.x, tx, Math.min(1, dt * 14)); s.y = U.lerp(s.y, ty, Math.min(1, dt * 14));
-          s.ang = p.shield ? a + Math.PI / 2 : -Math.PI / 2 + Math.sin(this.t * 2 + i) * 0.2;
+          s.ang = p.shield ? a + Math.PI / 2 : -Math.PI / 2 + Math.sin(this.t * (isMoving ? 6 : 2.5) + i) * 0.25;
         } else if (s.state === 'fly') {
           s.x += s.dx * speed * dt; s.y += s.dy * speed * dt; s.trav += speed * dt;
+          s.ang = Math.atan2(s.dy, s.dx);
           this.swordHits(s, true);
           if (s.trav >= range || s.pierce < 0) s.state = 'return';
         } else {
@@ -584,16 +668,36 @@ window.TT = window.TT || {};
       const st = this.state.stats, p = this.player, sc = this.scene;
       opts = opts || {};
       const crit = !opts.noCrit && Math.random() * 100 < st.critRate;
-      let dmg = base * (1 + st.elemDmg / 100) * (crit ? st.critDmg / 100 : 1);
+      const swordBonus = opts.from ? st.sectSwordDamagePct / 100 : 0;
+      const healthRatio = U.clamp(this.state.hp / st.maxHp, 0, 1);
+      const lowHealthBonus = st.sectLowHpDamagePct / 100 * (1 - healthRatio);
+      let dmg = base * (1 + st.elemDmg / 100) * (1 + swordBonus + lowHealthBonus) * (crit ? st.critDmg / 100 : 1);
       dmg = Math.max(1, dmg - e.def_);
       e.hp -= dmg; e.hitFlash = 0.08;
+      if (st.sectAttackSlowPct > 0) {
+        e.slowT = Math.max(e.slowT || 0, st.sectAttackSlowDurationSec);
+        e.slowAmount = Math.max(e.slowAmount || 0, st.sectAttackSlowPct / 100);
+      }
+      if (st.sectFreezeChance > 0 && Math.random() < st.sectFreezeChance) {
+        e.freezeT = Math.max(e.freezeT || 0, st.sectFreezeDurationSec);
+      }
+      if (st.clanBurnDamagePctPerSec > 0) {
+        e.burnT = Math.max(e.burnT || 0, st.clanBurnDurationSec);
+        e.burnDps = Math.max(e.burnDps || 0, st.atk * st.clanBurnDamagePctPerSec / 100);
+      }
       const kb = opts.from ? Math.atan2(e.y - p.y, e.x - p.x) : 0;
       if (!e.def.boss) { e.x += Math.cos(kb) * 6; e.y += Math.sin(kb) * 6; }
       sc.texts.push({ x: e.x + U.rand(-8, 8), y: e.y - 20, text: U.fmt(dmg), color: crit ? '#ffd23f' : '#ffffff', size: crit ? 20 : 14, life: 0.8 });
       for (let i = 0; i < (crit ? 8 : 4); i++) this.spark(e.x, e.y, crit ? '#ffd23f' : '#9fe8ff', 2.5, 0.35);
       if (crit && st.lifesteal > 0) this.state.hp = Math.min(st.maxHp, this.state.hp + dmg * st.lifesteal / 100);
+      if (st.sectLifesteal > 0) this.state.hp = Math.min(st.maxHp, this.state.hp + dmg * st.sectLifesteal);
       if (!opts.noProc) {
         p.hitCount++;
+        if (st.sectChainEvery > 0 && p.hitCount % st.sectChainEvery === 0) {
+          this.scene.bolts.push({ x: e.x, y: e.y, life: 0.25, seed: Math.random() * 1e6, color: D.sects.find(sect => sect.id === this.state.currentSectId).color });
+          const target = this.scene.enemies.find(other => other !== e && !other.dead && U.dist(other, e) < 2.5 * PPM);
+          if (target) this.damageEnemy(target, st.atk * 0.45, { noProc: true, noCrit: true });
+        }
         if (st.thunder > 0 && p.hitCount % 5 === 0) {
           sc.bolts.push({ x: e.x, y: e.y, life: 0.25, seed: Math.random() * 1e6, color: '#c9a4ff' });
           this.cam.shake = Math.max(this.cam.shake, 5);
@@ -616,10 +720,11 @@ window.TT = window.TT || {};
       const sc = this.scene, st = this.state;
       e.dead = true;
       sc.kills++;
+      if (sc.type === 'bicanh' && st.addSectQuestKill()) TT.UI.toast(`Nhiệm vụ Tông Môn hoàn tất: ${D.sectSystem.questKills} yêu thú đã bị tiêu diệt.`);
       for (let i = 0; i < (e.def.boss ? 60 : 14); i++) this.spark(e.x, e.y, e.def.eye, 3.5, 0.8);
       const m = st.addTuvi(Math.ceil(e.def.tuvi * sc.scale));
       if (m) this.onBreakthrough(m);
-      this.dropLinhThach(e.x, e.y, Math.ceil(e.def.linhThach * Math.sqrt(sc.scale) * U.rand(0.7, 1.3)));
+      this.dropLinhThach(e.x, e.y, Math.ceil(e.def.linhThach * Math.sqrt(sc.scale) * U.rand(0.7, 1.3) * (1 + st.stats.clanLinhThachDropPct / 100)));
       const B = D.bicanh;
       if (e.def.boss) {
         for (const d of B.bossDrops) this.dropItem(e.x, e.y, TT.Items.createStack(d.id, U.randInt(d.min, d.max)));
@@ -716,9 +821,17 @@ window.TT = window.TT || {};
       for (const e of sc.enemies) {
         if (e.dead) continue;
         e.hitFlash -= dt; e.atkCd -= dt;
+        e.slowT = Math.max(0, (e.slowT || 0) - dt);
+        e.freezeT = Math.max(0, (e.freezeT || 0) - dt);
+        e.burnT = Math.max(0, (e.burnT || 0) - dt);
+        if (e.burnT > 0 && e.burnDps > 0) {
+          e.hp -= e.burnDps * dt;
+          if (e.hp <= 0) { this.killEnemy(e); continue; }
+        }
+        if (e.freezeT > 0) continue;
         const def = e.def, r = def.radiusM * PPM;
         const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
-        let sp = def.speedMps * PPM;
+        let sp = def.speedMps * PPM * (e.slowT > 0 ? 1 - (e.slowAmount || 0) : 1);
         let mx = dx / d, my = dy / d;
         if (def.ai === 'ranged') {
           if (d < def.keepDistM * PPM) { mx = -mx; my = -my; } else if (d < def.keepDistM * PPM + 40) sp = 0;
@@ -793,7 +906,10 @@ window.TT = window.TT || {};
         dmg = dmg * 100 / (100 + st.stats.def);
         p.invuln = D.player.hurtInvulnSec * 0.5;
       }
-      if (p.shield) dmg *= 1 - D.player.shield.damageReduction;
+      if (p.shield) dmg *= 1 - Math.min(0.9, D.player.shield.damageReduction + st.stats.sectShieldDamageReductionPct);
+      if (p.sectBarrierT > 0) dmg *= 1 - D.sectSystem.ultimate.springBarrierReduction;
+      dmg *= 1 - st.stats.clanDamageReduction;
+      if (raw) dmg *= 1 - st.stats.clanLightningResistance;
       st.hp -= dmg;
       p.hurtT = HURT_ANIM_DURATION;
       this.scene.texts.push({ x: p.x, y: p.y - 30, text: '-' + U.fmt(dmg), color: '#ff5050', size: 16, life: 0.9 });
@@ -804,9 +920,9 @@ window.TT = window.TT || {};
 
     // ------------------------------------------------------------------ Độ Kiếp
     /** Sát thương đạo sét thứ k (GDD 3.3). */
-    static tribulationDamage(base, k, danDoc, reduction) {
+    static tribulationDamage(base, k, danDoc, reduction, lightningResistance) {
       const L = D.lightning;
-      return base * (1 + L.stepK * k) * (1 + danDoc / L.danDocDivisor) * (1 - reduction);
+      return base * (1 + L.stepK * k) * (1 + danDoc / L.danDocDivisor) * (1 - reduction) * (1 - (lightningResistance || 0));
     }
 
     updateTribulation(dt) {
@@ -876,7 +992,7 @@ window.TT = window.TT || {};
     scheduleWave(k) {
       const tb = this.trib, L = D.lightning, p = this.player, sc = this.scene;
       tb.events = []; tb.waveT = 0;
-      const dmg = Game.tribulationDamage(tb.cfg.baseDamage, k, this.state.danDoc, tb.reduction);
+      const dmg = Game.tribulationDamage(tb.cfg.baseDamage, k, this.state.danDoc, tb.reduction, this.state.stats.clanLightningResistance);
       const c = sc.sizePx / 2, R = tb.cfg.radiusM * PPM;
       let at = 0;
       const mk = (x, y, track, big, extraTrack) => sc.strikes.push({
@@ -1061,7 +1177,8 @@ window.TT = window.TT || {};
           p.lastFrame = Art.drawPlayer(ctx, p.x, p.y, p.aim, t, {
             moving: p.moving, dash: p.dashT > 0, dashAngle: Math.atan2(p.dashDir[1], p.dashDir[0]),
             cast: p.castT / CAST_DURATION, hurt: p.hurtT > 0, color: wcol, realm: st.realm, skin: st.skin, sword: st.swordSkin,
-            mvx: p.mvx, mvy: p.mvy, ghosts: p.ghosts
+            mvx: p.mvx, mvy: p.mvy, ghosts: p.ghosts, sectColor: st.currentSect.color,
+            title: st.sectTitle, titleColor: st.currentSect.color
           });
         } });
       }
@@ -1082,7 +1199,7 @@ window.TT = window.TT || {};
       for (const q of sc.qi) { Art.glow(ctx, q.x, q.y, 14, wcol, 0.9); }
       ctx.globalCompositeOperation = 'source-over';
       const swSkin = D.swordSkins.find(k => k.id === st.swordSkin);
-      for (const s of this.swords) Art.drawSword(ctx, s.x, s.y, s.ang, 30, wcol, 1, swSkin);
+      for (const s of this.swords) Art.drawSword(ctx, s.x, s.y, s.ang, 30, wcol, 1, swSkin, this.t, p.moving ? 'walk' : 'idle');
       // đạn địch
       ctx.globalCompositeOperation = 'lighter';
       for (const b of sc.eproj) { Art.glow(ctx, b.x, b.y, 14, b.color, 0.9); lights.push([b.x, b.y, 50, 0.5]); }

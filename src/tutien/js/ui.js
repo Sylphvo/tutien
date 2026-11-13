@@ -13,6 +13,8 @@ window.TT = window.TT || {};
   const UI = {
     game: null,
     menuOpen: false,
+    sectsOpen: false,
+    sectTab: 'sect',
     tab: 'inventory',
     filter: 'all',
     hovered: null,
@@ -29,12 +31,45 @@ window.TT = window.TT || {};
       $('#prep-close').onclick = () => this.closePrep();
       $('#prep-start').onclick = () => this.startTribulation();
       $('#help-close').onclick = () => { $('#help').classList.add('hidden'); this.syncPause(); };
+      $('#sk-sects').onclick = () => this.openSects();
+      $('#sects-close').onclick = () => this.closeSects();
+      document.querySelectorAll('#sects-modal [data-sect-tab]').forEach(button => {
+        button.onclick = () => { this.sectTab = button.dataset.sectTab; this.renderSects(); };
+      });
       this.buildHudSlots();
+      this.initSkillIcons();
       this.syncPause();
     },
 
+    initSkillIcons() {
+      const drawIcon = (cvId, col, row, isClanBadge) => {
+        const el = document.getElementById(cvId);
+        if (!el || !TT.Art) return;
+        const g = el.getContext('2d');
+        const fetcher = isClanBadge ? TT.Art.getClanBadge : TT.Art.getSkillIcon;
+        fetcher(col, row, {
+          callback: sp => {
+            if (sp && sp.canvas) {
+              g.clearRect(0, 0, el.width, el.height);
+              g.drawImage(sp.canvas, 0, 0, el.width, el.height);
+            }
+          }
+        });
+        const immediate = fetcher(col, row);
+        if (immediate && immediate.canvas) {
+          g.clearRect(0, 0, el.width, el.height);
+          g.drawImage(immediate.canvas, 0, 0, el.width, el.height);
+        }
+      };
+
+      drawIcon('icon-sword', 1, 0, false);
+      drawIcon('icon-dash', 3, 5, false);
+      drawIcon('icon-shield', 5, 2, false);
+      drawIcon('icon-sects', 2, 1, true);
+    },
+
     syncPause() {
-      const open = this.menuOpen || !!this.prep || !!this.dlg || !$('#help').classList.contains('hidden') || !$('#confirm').classList.contains('hidden');
+      const open = this.menuOpen || this.sectsOpen || !!this.prep || !!this.dlg || !$('#help').classList.contains('hidden') || !$('#confirm').classList.contains('hidden');
       this.game.setPaused(open);
     },
 
@@ -54,6 +89,11 @@ window.TT = window.TT || {};
         else if (k === 'e' || k === 'enter' || k === ' ') { e.preventDefault(); this.nextLine(); }
         return true;
       }
+      if (k === 'g') {
+        if (this.sectsOpen) this.closeSects(); else this.openSects();
+        return true;
+      }
+      if (this.sectsOpen) { if (k === 'escape') this.closeSects(); return true; }
       if (k === 'tab' || k === 'i') {
         if (this.menuOpen) this.closeMenu(); else this.openMenu('inventory');
         return true;
@@ -176,6 +216,225 @@ window.TT = window.TT || {};
 
     refresh() { if (this.menuOpen) this.renderMenu(); },
 
+    openSects() {
+      if (this.menuOpen) {
+        this.menuOpen = false;
+        $('#menu').classList.add('hidden');
+      }
+      this.sectsOpen = true;
+      this.sectTab = 'sect';
+      $('#sects-modal').classList.remove('hidden');
+      this.renderSects();
+      this.syncPause();
+    },
+
+    closeSects() {
+      this.sectsOpen = false;
+      $('#sects-modal').classList.add('hidden');
+      this.syncPause();
+    },
+
+    sectBuffLines(sect) {
+      const b = sect.buffs;
+      const lines = [];
+      if (b.swordDamagePct) lines.push(`+${b.swordDamagePct}% sát thương Ngự Kiếm`);
+      if (b.shieldMpCostReduction) lines.push(`-${Math.round(b.shieldMpCostReduction * 100)}% MP duy trì Kiếm Thuẫn`);
+      if (b.lifesteal) lines.push(`Hút máu ${Math.round(b.lifesteal * 100)}% sát thương`);
+      if (b.lowHpDamagePct) lines.push(`Sinh lực càng thấp, sát thương tăng tối đa ${b.lowHpDamagePct}%`);
+      if (b.moveSpeedPct) lines.push(`+${b.moveSpeedPct}% tốc độ di chuyển`);
+      if (b.chainEvery) lines.push(`Mỗi ${b.chainEvery} đòn đánh giật sét lan`);
+      if (b.dashCooldownReduction) lines.push(`-${Math.round(b.dashCooldownReduction * 100)}% hồi chiêu Lôi Độn`);
+      if (b.danDocGainMultiplier) lines.push(`-${Math.round((1 - b.danDocGainMultiplier) * 100)}% Đan Độc tích tụ`);
+      if (b.potionEffectPct) lines.push(`+${b.potionEffectPct}% hiệu quả hồi phục từ đan`);
+      if (b.hpRegenPctPerSec) lines.push(`Hồi ${b.hpRegenPctPerSec * 100}% HP tối đa mỗi giây`);
+      if (b.attackSlowPct) lines.push(`Đòn đánh làm chậm ${b.attackSlowPct}%`);
+      if (b.freezeChance) lines.push(`${Math.round(b.freezeChance * 100)}% đóng băng trong ${b.freezeDurationSec}s`);
+      if (b.shieldDamageReductionPct) lines.push(`+${Math.round(b.shieldDamageReductionPct * 100)}% giảm sát thương khi giữ Kiếm Thuẫn`);
+      return lines;
+    },
+
+    clanBuffLines(clan) {
+      const b = clan.buffs;
+      const lines = [];
+      if (b.additionalSwords) lines.push(`+${b.additionalSwords} phi kiếm bay quanh người`);
+      if (b.critRate) lines.push(`+${b.critRate}% chí mạng`);
+      if (b.attackPct) lines.push(`+${b.attackPct}% sát thương cơ bản`);
+      if (b.burnDamagePctPerSec) lines.push(`Thiêu đốt ${b.burnDamagePctPerSec}% Công mỗi giây trong ${b.burnDurationSec}s`);
+      if (b.linhThachDropPct) lines.push(`+${b.linhThachDropPct}% Linh Thạch từ quái`);
+      if (b.shopDiscount) lines.push(`-${Math.round(b.shopDiscount * 100)}% giá tại Vạn Bảo Các`);
+      if (b.maxHpPct) lines.push(`+${b.maxHpPct}% HP tối đa`);
+      if (b.damageReduction) lines.push(`-${Math.round(b.damageReduction * 100)}% sát thương nhận vào`);
+      if (b.lightningResistance) lines.push(`-${Math.round(b.lightningResistance * 100)}% sát thương Lôi Kiếp`);
+      return lines;
+    },
+
+    paintBadges(container) {
+      if (!container || !TT.Art || !TT.Art.getClanBadge) return;
+      container.querySelectorAll('.sect-badge-cv, .clan-badge-cv').forEach(cv => {
+        const col = parseInt(cv.dataset.col, 10) || 0;
+        const row = parseInt(cv.dataset.row, 10) || 0;
+        const g = cv.getContext('2d');
+        const paint = sp => {
+          if (sp && sp.canvas) {
+            g.clearRect(0, 0, cv.width, cv.height);
+            g.drawImage(sp.canvas, 2, 2, cv.width - 4, cv.height - 4);
+          }
+        };
+        const res = TT.Art.getClanBadge(col, row, { callback: paint });
+        if (res && res.canvas) paint(res);
+      });
+    },
+
+    renderSects() {
+      const st = this.game.state, body = $('#sects-body');
+      document.querySelectorAll('#sects-modal [data-sect-tab]').forEach(button =>
+        button.classList.toggle('active', button.dataset.sectTab === this.sectTab));
+      if (this.sectTab === 'clan') {
+        const clan = st.currentClan;
+        const cost = clan ? D.sectSystem.clanChangeCost : 0;
+        const clanBadgeCol = clan && clan.badge ? clan.badge.col : 0;
+        const clanBadgeRow = clan && clan.badge ? clan.badge.row : 0;
+        body.innerHTML = `<div class="sects-content">
+          <div class="clan-current" style="--clan-color:${clan ? clan.color : '#67e8f9'}">
+            <div class="clan-title-box">
+              <canvas class="clan-badge-cv" width="44" height="44" data-col="${clanBadgeCol}" data-row="${clanBadgeRow}"></canvas>
+              <div>
+                <h2>${clan ? esc(clan.name) : 'Chưa chọn huyết mạch'}</h2>
+                <div class="sect-meta">${clan ? esc(clan.epithet) : 'Lần chọn đầu tiên được miễn phí'}</div>
+              </div>
+            </div>
+            <p>${clan ? esc(clan.description) : 'Chọn một thế gia để thức tỉnh huyết mạch và nhận chỉ số gia tộc.'}</p>
+            ${clan ? `<ul>${this.clanBuffLines(clan).map(line => `<li>${esc(line)}</li>`).join('')}</ul>` : ''}
+            <div class="sect-meta">Linh Thạch hiện có: ◆ ${U.fmt(st.linhThach)} · ${clan ? `Tẩy Tủy đổi huyết mạch: ◆ ${U.fmt(cost)}` : 'Chọn miễn phí'}</div>
+          </div>
+          <div class="clan-grid">${D.clans.map(item => {
+            const active = item.id === st.currentClanId;
+            const bCol = item.badge ? item.badge.col : 0;
+            const bRow = item.badge ? item.badge.row : 0;
+            return `<article class="clan-card ${active ? 'current' : ''}" style="--card-color:${item.color}">
+              <div class="clan-title-box">
+                <canvas class="clan-badge-cv" width="34" height="34" data-col="${bCol}" data-row="${bRow}"></canvas>
+                <div>
+                  <h3>${esc(item.name)}</h3>
+                  <div class="sect-meta">${esc(item.epithet)}</div>
+                </div>
+              </div>
+              <p class="dim">${esc(item.description)}</p>
+              <ul>${this.clanBuffLines(item).map(line => `<li>${esc(line)}</li>`).join('')}</ul>
+              <button class="bigbtn clan-choose" data-id="${item.id}" ${active || st.linhThach < cost ? 'disabled' : ''}>
+                ${active ? 'Đang Mang Huyết Mạch' : `${clan ? 'Tẩy Tủy Đổi' : 'Chọn Huyết Mạch'}${cost ? ` · ◆ ${U.fmt(cost)}` : ' · Miễn phí'}`}
+              </button>
+            </article>`;
+          }).join('')}</div>
+        </div>`;
+        this.paintBadges(body);
+        body.querySelectorAll('.clan-choose').forEach(button => {
+          button.onclick = () => {
+            const error = st.chooseClan(button.dataset.id);
+            if (error) this.toast(error);
+            else { TT.Save.save(st); this.toast(`Huyết mạch đã thức tỉnh: ${st.currentClan.name}`); }
+            this.renderSects();
+          };
+        });
+        return;
+      }
+
+      const sect = st.currentSect, rank = st.sectRank, nextRank = D.sectRanks[st.sectRankIndex + 1];
+      const progress = nextRank ? U.clamp(st.sectContribution / nextRank.contribution, 0, 1) * 100 : 100;
+      const questTarget = D.sectSystem.questKills, questReady = st.sectQuestKills >= questTarget;
+      const stipendReady = rank.stipend > 0 && Date.now() - st.lastSectStipendAt >= D.sectSystem.stipendIntervalMs;
+      const stipendLeft = Math.max(0, D.sectSystem.stipendIntervalMs - (Date.now() - st.lastSectStipendAt));
+      const stipendButton = rank.stipend <= 0 ? 'Đạt cấp bậc để mở bổng lộc'
+        : stipendReady ? `Nhận ◆ ${U.fmt(rank.stipend)} Linh Thạch`
+          : `Bổng lộc sau ${Math.ceil(stipendLeft / 3600000)} giờ`;
+      const ultimate = sect.ultimate, ultimateCfg = D.sectSystem.ultimate, p = this.game.player;
+      const ultimateReady = p.sectUltimateCd <= 0 && st.mp >= st.stats.maxMp * ultimateCfg.mpCostPct / 100 && this.game.scene.type === 'bicanh' && !p.dead;
+      const sBadgeCol = sect.badge ? sect.badge.col : 2;
+      const sBadgeRow = sect.badge ? sect.badge.row : 1;
+      body.innerHTML = `<div class="sects-content">
+        <div class="sect-current" style="--sect-color:${sect.color}">
+          <div>
+            <div class="sect-title-box">
+              <canvas class="sect-badge-cv" width="44" height="44" data-col="${sBadgeCol}" data-row="${sBadgeRow}"></canvas>
+              <div>
+                <h2>${esc(sect.name)}</h2>
+                <div class="sect-meta">${esc(sect.alignment)} · ${esc(sect.discipline)} · ${esc(rank.name)}</div>
+              </div>
+            </div>
+            <p>${esc(sect.description)}</p>
+            <ul>${this.sectBuffLines(sect).map(line => `<li>${esc(line)}</li>`).join('')}</ul>
+            <div class="sect-progress">
+              <div class="dim">Cống hiến: <b>${U.fmt(st.sectContribution)}</b> ${nextRank ? `/ ${U.fmt(nextRank.contribution)} để thăng ${esc(nextRank.name)}` : '· Đã đạt chức vị cao nhất'}</div>
+              <div class="pbar wide"><i style="width:${progress}%"></i><span>${nextRank ? `${U.fmt(st.sectContribution)} / ${U.fmt(nextRank.contribution)}` : 'Tối đa'}</span></div>
+            </div>
+            <div class="sect-rank-actions">
+              <button id="sect-promote" class="bigbtn" ${st.canPromoteSectRank() ? '' : 'disabled'}>Thăng Chức</button>
+              <button id="sect-stipend" class="bigbtn" ${stipendReady ? '' : 'disabled'}>${esc(stipendButton)}</button>
+            </div>
+          </div>
+          <div class="sect-meta">◆ ${U.fmt(st.linhThach)} Linh Thạch</div>
+        </div>
+        <div class="sect-quest">
+          <div><strong>Nhiệm vụ Tông Môn: Trảm Yêu Trừ Ma</strong><div class="dim">Tiêu diệt ${questTarget} yêu thú trong Bí Cảnh · Thưởng +${D.sectSystem.questContribution} Cống Hiến</div></div>
+          <button id="sect-quest-claim" class="bigbtn" ${questReady ? '' : 'disabled'}>${questReady ? 'Nhận Cống Hiến' : `${st.sectQuestKills} / ${questTarget}`}</button>
+          <div class="pbar"><i style="width:${U.clamp(st.sectQuestKills / questTarget, 0, 1) * 100}%"></i></div>
+        </div>
+        <div class="sect-ultimate">
+          <strong>${esc(ultimate.name)}</strong><div class="dim">${esc(ultimate.description)}</div>
+          <div class="dim">Tiêu hao ${ultimateCfg.mpCostPct}% MP tối đa · Hồi chiêu ${ultimateCfg.cooldownSec}s · Chỉ dùng trong Bí Cảnh</div>
+          <button id="sect-ultimate-cast" class="bigbtn" ${ultimateReady ? '' : 'disabled'}>Thi triển Tuyệt Học${p.sectUltimateCd > 0 ? ` · ${p.sectUltimateCd.toFixed(1)}s` : ''}</button>
+        </div>
+        <h3 class="sect-list-title">Ngũ Đại Tông Môn</h3>
+        <div class="sect-grid">${D.sects.map(item => {
+          const active = item.id === st.currentSectId;
+          const fee = D.sectSystem.sectChangeCost;
+          const iCol = item.badge ? item.badge.col : 2;
+          const iRow = item.badge ? item.badge.row : 1;
+          return `<article class="sect-card ${active ? 'current' : ''}" style="--card-color:${item.color}">
+            <div class="sect-title-box">
+              <canvas class="sect-badge-cv" width="34" height="34" data-col="${iCol}" data-row="${iRow}"></canvas>
+              <div>
+                <h3>${esc(item.name)}</h3>
+                <div class="sect-meta">${esc(item.alignment)} · ${esc(item.discipline)}</div>
+              </div>
+            </div>
+            <p class="dim">${esc(item.description)}</p>
+            <ul>${this.sectBuffLines(item).map(line => `<li>${esc(line)}</li>`).join('')}</ul>
+            <div class="dim">Tuyệt học: <b>${esc(item.ultimate.name)}</b></div>
+            <button class="bigbtn sect-join" data-id="${item.id}" ${active || st.linhThach < fee ? 'disabled' : ''}>
+              ${active ? 'Đang Gia Nhập' : `Bái Nhập · ◆ ${U.fmt(fee)}`}
+            </button>
+          </article>`;
+        }).join('')}</div>
+      </div>`;
+      this.paintBadges(body);
+      $('#sect-promote').onclick = () => {
+        if (st.promoteSectRank()) { TT.Save.save(st); this.toast(`Thăng chức: ${st.sectRank.name}`); }
+        this.renderSects();
+      };
+      $('#sect-stipend').onclick = () => {
+        const amount = st.claimSectStipend();
+        if (amount) { TT.Save.save(st); this.toast(`Đã nhận bổng lộc ◆ ${U.fmt(amount)} Linh Thạch.`); }
+        this.renderSects();
+      };
+      $('#sect-quest-claim').onclick = () => {
+        if (st.claimSectQuestReward()) { TT.Save.save(st); this.toast(`Nhận ${D.sectSystem.questContribution} Cống Hiến Tông Môn.`); }
+        this.renderSects();
+      };
+      $('#sect-ultimate-cast').onclick = () => {
+        this.closeSects();
+        if (this.game.castSectUltimate()) TT.Save.save(st);
+      };
+      body.querySelectorAll('.sect-join').forEach(button => {
+        button.onclick = () => {
+          const error = st.joinSect(button.dataset.id);
+          if (error) this.toast(error);
+          else { TT.Save.save(st); this.toast(`Đã bái nhập ${st.currentSect.name}.`); }
+          this.renderSects();
+        };
+      });
+    },
+
     // ---------------------------------------------------------------- confirm
     confirm(html, cb) {
       $('#confirm-msg').innerHTML = html;
@@ -204,6 +463,7 @@ window.TT = window.TT || {};
       const body = $('#menu-body');
       this.hovered = null;
       if (this.tab === 'inventory') this.renderInventory(body);
+      else if (this.tab === 'weapons') this.renderWeapons(body);
       else if (this.tab === 'reroll') this.renderReroll(body);
       else if (this.tab === 'alchemy') this.renderAlchemy(body);
       else if (this.tab === 'bicanh') this.renderBiCanhSelect(body);
@@ -301,12 +561,28 @@ window.TT = window.TT || {};
           </div>
         </div>
         <div class="inv-right">
-          <div class="bag-head">TÚI TRỮ VẬT: <b>[${bagName}]</b> <span class="lt">◆ ${U.fmt(st.linhThach)} Linh Thạch</span></div>
+          <div class="bag-head">
+            <span>TÚI TRỮ VẬT: <b>[${bagName}]</b></span>
+            <button id="btn-demo-kit" class="demo-btn" title="Nạp trang bị Thần Khí 5/5 tương sinh & Trang phục Hóa Thần xịn nhất">⚡ Nạp Demo Xịn Nhất</button>
+            <span class="lt">◆ ${U.fmt(st.linhThach)} Linh Thạch</span>
+          </div>
           <div class="filters">Bộ lọc: ${filters.map(f => `<button class="flt ${this.filter === f[0] ? 'active' : ''}" data-f="${f[0]}">${f[1]}</button>`).join('')}</div>
           <div class="grid" id="bag"></div>
           <div class="tooltip" id="tt">${this.tooltipHTML(null)}</div>
         </div>
       </div>`;
+      const btnDemo = body.querySelector('#btn-demo-kit');
+      if (btnDemo) {
+        btnDemo.onclick = () => {
+          this.confirm('Nạp toàn bộ <b>Trang Bị Thần Khí Cấp 15 (5/5 Tương Sinh)</b> và <b>Trang Phục Hóa Thần xịn nhất</b> cho nhân vật?', () => {
+            st.giveUltimateDemoKit();
+            TT.Save.save(st);
+            this.toast('⚡ Đã nạp thành công Bộ Thần Khí Hóa Thần Đỉnh Phong & Vạn Cổ Tiên Đế Bào!');
+            this.updateHud();
+            this.renderMenu();
+          });
+        };
+      }
       body.querySelectorAll('.flt').forEach(b => { b.onclick = () => { this.filter = b.dataset.f; this.renderMenu(); }; });
       body.querySelectorAll('.eslot').forEach(el => {
         const it = st.equipment[el.dataset.slot];
@@ -582,9 +858,10 @@ window.TT = window.TT || {};
       const st = this.game.state;
       const rows = D.shop.map(([id, price], i) => {
         const def = D.items[id];
-        const can1 = st.linhThach >= price, can5 = st.linhThach >= price * 5;
+        const discountedPrice = Math.max(1, Math.floor(price * (1 - st.stats.clanShopDiscount)));
+        const can1 = st.linhThach >= discountedPrice, can5 = st.linhThach >= discountedPrice * 5;
         return `<div class="recipe shop-row"><img src="${Art.icon(def.icon, def.color)}"><div class="rinfo"><b style="color:${def.color}">${esc(def.name)}</b>
-          <span class="dim">· đang có ${st.inventory.count(id)}</span><div class="dim">${esc(def.desc)}</div><div class="rcost">◆ ${U.fmt(price)} Linh Thạch / cái</div></div>
+          <span class="dim">· đang có ${st.inventory.count(id)}</span><div class="dim">${esc(def.desc)}</div><div class="rcost">◆ ${U.fmt(discountedPrice)} Linh Thạch / cái${st.stats.clanShopDiscount ? ` <span class="dim">(giảm ${Math.round(st.stats.clanShopDiscount * 100)}%)</span>` : ''}</div></div>
           <button class="craft buy" data-i="${i}" data-n="1" ${can1 ? '' : 'disabled'}>Mua 1</button>
           <button class="craft buy" data-i="${i}" data-n="5" ${can5 ? '' : 'disabled'}>Mua 5</button></div>`;
       }).join('');
@@ -593,11 +870,12 @@ window.TT = window.TT || {};
       body.querySelectorAll('.buy').forEach(b => {
         b.onclick = () => {
           const [id, price] = D.shop[+b.dataset.i], n = +b.dataset.n;
-          if (st.linhThach < price * n) return;
+          const discountedPrice = Math.max(1, Math.floor(price * (1 - st.stats.clanShopDiscount)));
+          if (st.linhThach < discountedPrice * n) return;
           const left = st.inventory.add(I.createStack(id, n));
           const bought = n - left;
           if (bought <= 0) { this.toast('Túi Trữ Vật đã đầy!'); return; }
-          st.linhThach -= price * bought;
+          st.linhThach -= discountedPrice * bought;
           this.toast(`Mua ${D.items[id].name} x${bought}` + (left ? ' (túi đầy)' : ''));
           this.renderMenu();
         };
@@ -639,65 +917,123 @@ window.TT = window.TT || {};
       });
     },
 
-    // ---------- Y Phục (skin)
-    renderSkins(body) {
+    // ---------- Vũ Khí (Thần Binh & Kiếm Hình)
+    renderWeapons(body) {
       const st = this.game.state;
-      // kind: 'outfit' (Y phục) | 'sword' (Kiếm hình). Mỗi loại có danh sách, khoá sở hữu và khoá đang dùng riêng.
-      const KINDS = {
-        outfit: { list: D.skins, owned: 'ownedSkins', cur: 'skin', on: 'Đang Mặc', use: 'Thay Y Phục', done: 'Đã khoác ' },
-        sword: { list: D.swordSkins, owned: 'ownedSwordSkins', cur: 'swordSkin', on: 'Đang Dùng', use: 'Đổi Kiếm', done: 'Đã luyện hóa ' }
-      };
-      const cardsOf = kind => {
-        const K = KINDS[kind];
-        return K.list.map(s => {
-          const owned = st[K.owned].includes(s.id), on = st[K.cur] === s.id;
-          let btn;
-          if (on) btn = `<button class="bigbtn" disabled>${K.on}</button>`;
-          else if (owned) btn = `<button class="bigbtn sk-wear" data-kind="${kind}" data-id="${s.id}">${K.use}</button>`;
-          else if (st.realm < s.realm) btn = `<button class="bigbtn" disabled>Cần ${D.realms[s.realm].name}</button>`;
-          else btn = `<button class="bigbtn sk-buy" data-kind="${kind}" data-id="${s.id}" ${st.linhThach >= s.price ? '' : 'disabled'}>Mua ◆ ${U.fmt(s.price)}</button>`;
-          return `<div class="skin ${on ? 'on' : ''}"><canvas class="skprev" data-kind="${kind}" data-id="${s.id}" width="150" height="150"></canvas>
-            <div class="bname">${esc(s.name)}</div><div class="dim">${esc(s.desc)}</div>${btn}</div>`;
-        }).join('');
-      };
-      body.innerHTML = `<div class="bsel">
-        <div class="alc-head">KIẾM CÁC · Y PHỤC <span class="lt">◆ ${U.fmt(st.linhThach)}</span></div><div class="skins">${cardsOf('outfit')}</div>
-        <div class="alc-head">KIẾM CÁC · KIẾM HÌNH <span class="dim">Đổi dáng kiếm cầm tay và phi kiếm; ánh sáng vẫn theo hệ vũ khí</span></div><div class="skins">${cardsOf('sword')}</div>
-      </div>`;
       const wcol = st.equipment.Weapon ? D.elements.colors[st.equipment.Weapon.element] : '#9fe8ff';
-      body.querySelectorAll('.skprev').forEach(cv => {
+      const cards = D.swordSkins.map(s => {
+        const owned = st.ownedSwordSkins.includes(s.id), on = st.swordSkin === s.id;
+        const reqRealm = s.realm ? D.realms[s.realm].name : 'Luyện Khí';
+        const price = s.price ? Math.max(1, Math.floor(s.price * (1 - st.stats.clanShopDiscount))) : 0;
+        let btn;
+        if (on) btn = `<button class="bigbtn" disabled>Đang Dùng</button>`;
+        else if (owned) btn = `<button class="bigbtn wp-wear" data-id="${s.id}">Ngự Kiếm</button>`;
+        else if (st.realm < s.realm) btn = `<button class="bigbtn" disabled>Cần ${reqRealm}</button>`;
+        else btn = `<button class="bigbtn wp-buy" data-id="${s.id}" ${st.linhThach >= price ? '' : 'disabled'}>Luyện Hóa ◆ ${U.fmt(price)}</button>`;
+
+        const metaText = s.price ? `◆ ${U.fmt(price)} Linh Thạch${st.stats.clanShopDiscount ? ` (giảm ${Math.round(st.stats.clanShopDiscount * 100)}%)` : ''} · Cần ${reqRealm}` : `Miễn Phí · Cần ${reqRealm}`;
+        return `<div class="weapon-card ${on ? 'on' : ''}">
+          <canvas class="wpprev" data-id="${s.id}" width="180" height="150"></canvas>
+          <div class="bname">${esc(s.name)}</div>
+          <div class="wp-meta">${metaText}</div>
+          <div class="dim">${esc(s.desc)}</div>
+          ${btn}
+        </div>`;
+      }).join('');
+
+      body.innerHTML = `<div class="bsel">
+        <div class="alc-head">KIẾM CÁC · VŨ KHÍ &amp; PHI KIẾM <span class="lt">◆ ${U.fmt(st.linhThach)} Linh Thạch</span></div>
+        <div class="wp-subtitle dim">Mỗi thanh kiếm thay đổi ngoại hình kiếm cầm tay và phi kiếm khi phóng bằng kỹ năng <b>Ngự Kiếm</b>. Hào quang tự động kích hoạt theo hệ Ngũ Hành.</div>
+        <div class="weapons">${cards}</div>
+      </div>`;
+
+      body.querySelectorAll('.wpprev').forEach(cv => {
         const ctx = cv.getContext('2d'), id = cv.dataset.id;
-        ctx.fillStyle = '#121a24'; ctx.fillRect(0, 0, 150, 150);
-        if (cv.dataset.kind === 'outfit') {
-          ctx.save(); ctx.scale(1.6, 1.6);
-          TT.Character.draw(ctx, 47, 70, Math.PI / 2, 1.3, { skin: id, sword: st.swordSkin, color: wcol, realm: st.realm });
-          ctx.restore();
-        } else {
-          // nhân vật cầm kiếm nhìn nghiêng + phi kiếm phóng to bên phải
-          ctx.save(); ctx.scale(1.5, 1.5);
-          TT.Character.draw(ctx, 36, 72, 0, 1.3, { skin: st.skin, sword: id, color: wcol, realm: 0, spirit: false });
-          ctx.restore();
-          ctx.save(); ctx.globalCompositeOperation = 'lighter';
-          TT.Art.glow(ctx, 118, 72, 34, wcol, 0.35);
-          ctx.restore();
-          TT.Art.drawSword(ctx, 118, 72, -Math.PI / 2, 92, wcol, 1, D.swordSkins.find(k => k.id === id));
-        }
+        const s = D.swordSkins.find(k => k.id === id);
+        ctx.fillStyle = '#101722'; ctx.fillRect(0, 0, 180, 150);
+        // nhân vật cầm kiếm nhìn nghiêng bên trái
+        ctx.save(); ctx.scale(1.4, 1.4);
+        TT.Character.draw(ctx, 32, 74, 0, 1.3, { skin: st.skin, sword: id, color: wcol, realm: 0, spirit: false });
+        ctx.restore();
+        // phi kiếm phóng to bên phải
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        TT.Art.glow(ctx, 130, 75, 36, (s && s.pal && (s.pal.gem || s.pal.gold)) || wcol, 0.4);
+        ctx.restore();
+        TT.Art.drawSword(ctx, 130, 75, -Math.PI / 2, 92, wcol, 1, s, 0);
       });
-      body.querySelectorAll('.sk-buy').forEach(b => {
+
+      body.querySelectorAll('.wp-buy').forEach(b => {
         b.onclick = () => {
-          const K = KINDS[b.dataset.kind];
-          const s = K.list.find(k => k.id === b.dataset.id);
-          this.confirm(`Mua <b>${esc(s.name)}</b> với giá <b>${U.fmt(s.price)}</b> Linh Thạch?`, () => {
-            if (st.linhThach < s.price || st[K.owned].includes(s.id)) return;
-            st.linhThach -= s.price; st[K.owned].push(s.id); st[K.cur] = s.id;
+          const s = D.swordSkins.find(k => k.id === b.dataset.id);
+          const price = s.price ? Math.max(1, Math.floor(s.price * (1 - st.stats.clanShopDiscount))) : 0;
+          this.confirm(`Luyện hóa <b>${esc(s.name)}</b> với giá <b>${U.fmt(price)}</b> Linh Thạch?`, () => {
+            if (st.linhThach < price || st.ownedSwordSkins.includes(s.id)) return;
+            st.linhThach -= price; st.ownedSwordSkins.push(s.id); st.swordSkin = s.id;
             TT.Save.save(st);
-            this.toast(K.done + s.name);
+            this.toast('Đã luyện hóa: ' + s.name);
             this.renderMenu();
           });
         };
       });
+
+      body.querySelectorAll('.wp-wear').forEach(b => {
+        b.onclick = () => {
+          const s = D.swordSkins.find(k => k.id === b.dataset.id);
+          st.swordSkin = b.dataset.id;
+          TT.Save.save(st);
+          this.toast('Đã ngự trang: ' + (s ? s.name : b.dataset.id));
+          this.renderMenu();
+        };
+      });
+    },
+
+    // ---------- Y Phục (skin)
+    renderSkins(body) {
+      const st = this.game.state;
+      const cards = D.skins.map(s => {
+        const owned = st.ownedSkins.includes(s.id), on = st.skin === s.id;
+        let btn;
+        if (on) btn = `<button class="bigbtn" disabled>Đang Mặc</button>`;
+        else if (owned) btn = `<button class="bigbtn sk-wear" data-id="${s.id}">Thay Y Phục</button>`;
+        else if (st.realm < s.realm) btn = `<button class="bigbtn" disabled>Cần ${D.realms[s.realm].name}</button>`;
+        else btn = `<button class="bigbtn sk-buy" data-id="${s.id}" ${st.linhThach >= s.price ? '' : 'disabled'}>Mua ◆ ${U.fmt(s.price)}</button>`;
+        return `<div class="skin ${on ? 'on' : ''}"><canvas class="skprev" data-id="${s.id}" width="150" height="150"></canvas>
+          <div class="bname">${esc(s.name)}</div><div class="dim">${esc(s.desc)}</div>${btn}</div>`;
+      }).join('');
+
+      body.innerHTML = `<div class="bsel">
+        <div class="alc-head">KIẾM CÁC · Y PHỤC <span class="lt">◆ ${U.fmt(st.linhThach)} Linh Thạch</span></div>
+        <div class="wp-subtitle dim">Khoác tiên bào, đạo y tăng phong thái Kiếm Tu. Đổi vũ khí và phi kiếm tại tab <b class="gold cursor-pointer" id="btn-tab-wp">[VŨ KHÍ]</b>.</div>
+        <div class="skins">${cards}</div>
+      </div>`;
+
+      const toWp = body.querySelector('#btn-tab-wp');
+      if (toWp) toWp.onclick = () => this.openMenu('weapons');
+
+      const wcol = st.equipment.Weapon ? D.elements.colors[st.equipment.Weapon.element] : '#9fe8ff';
+      body.querySelectorAll('.skprev').forEach(cv => {
+        const ctx = cv.getContext('2d'), id = cv.dataset.id;
+        ctx.fillStyle = '#121a24'; ctx.fillRect(0, 0, 150, 150);
+        ctx.save(); ctx.scale(1.6, 1.6);
+        TT.Character.draw(ctx, 47, 70, Math.PI / 2, 1.3, { skin: id, sword: st.swordSkin, color: wcol, realm: st.realm });
+        ctx.restore();
+      });
+
+      body.querySelectorAll('.sk-buy').forEach(b => {
+        b.onclick = () => {
+          const s = D.skins.find(k => k.id === b.dataset.id);
+          this.confirm(`Mua <b>${esc(s.name)}</b> với giá <b>${U.fmt(s.price)}</b> Linh Thạch?`, () => {
+            if (st.linhThach < s.price || st.ownedSkins.includes(s.id)) return;
+            st.linhThach -= s.price; st.ownedSkins.push(s.id); st.skin = s.id;
+            TT.Save.save(st);
+            this.toast('Đã khoác ' + s.name);
+            this.renderMenu();
+          });
+        };
+      });
+
       body.querySelectorAll('.sk-wear').forEach(b => {
-        b.onclick = () => { st[KINDS[b.dataset.kind].cur] = b.dataset.id; TT.Save.save(st); this.renderMenu(); };
+        b.onclick = () => { st.skin = b.dataset.id; TT.Save.save(st); this.renderMenu(); };
       });
     },
 
@@ -716,6 +1052,7 @@ window.TT = window.TT || {};
         <div class="dp-btns">
           <button id="dp-trib" class="bigbtn" ${st.atBottleneck() && inHub ? '' : 'disabled'}>Chuẩn Bị Độ Kiếp</button>
           <button id="dp-go" class="bigbtn" ${inHub ? '' : 'disabled'}>Vào Bí Cảnh</button>
+          <button id="dp-demo" class="bigbtn demo-btn" style="padding: 10px 14px; font-size: 13px;">⚡ Nạp Demo Xịn Nhất</button>
           <button id="dp-save" class="bigbtn">Lưu</button>
           <button id="dp-reset" class="bigbtn danger">Chơi Lại Từ Đầu</button>
         </div>
@@ -724,6 +1061,15 @@ window.TT = window.TT || {};
       </div>`;
       $('#dp-trib').onclick = () => { this.closeMenu(); this.openTribulationPrep(); };
       $('#dp-go').onclick = () => { this.tab = 'bicanh'; this.renderMenu(); };
+      $('#dp-demo').onclick = () => {
+        this.confirm('Nạp toàn bộ <b>Trang Bị Thần Khí Cấp 15 (5/5 Tương Sinh)</b> và <b>Trang Phục Hóa Thần xịn nhất</b> cho nhân vật?', () => {
+          st.giveUltimateDemoKit();
+          TT.Save.save(st);
+          this.toast('⚡ Đã nạp thành công Bộ Thần Khí Hóa Thần Đỉnh Phong & Vạn Cổ Tiên Đế Bào!');
+          this.updateHud();
+          this.renderMenu();
+        });
+      };
       $('#dp-save').onclick = () => { TT.Save.save(st); this.toast('Đã lưu.'); };
       $('#dp-reset').onclick = () => this.confirm('Xóa toàn bộ dữ liệu và bắt đầu lại từ Luyện Khí?', () => { TT.Save.clear(); location.reload(); });
     },
@@ -763,7 +1109,7 @@ window.TT = window.TT || {};
       for (let r = 0; r < runs; r++) {
         let hp = st.stats.maxHp, block = fx.block, alive = true;
         for (let k = 1; k <= cfg.waves && alive; k++) {
-          const dmg = TT.Game.tribulationDamage(cfg.baseDamage, k, st.danDoc, fx.reduction);
+          const dmg = TT.Game.tribulationDamage(cfg.baseDamage, k, st.danDoc, fx.reduction, st.stats.clanLightningResistance);
           for (const pat of cfg.pattern[k - 1]) {
             const n = pat === 'track' ? L.trackStrikesBase + Math.floor(k / 2) : pat === 'grid' ? 2 : 1;
             for (let i = 0; i < n; i++) {
@@ -785,8 +1131,8 @@ window.TT = window.TT || {};
       const st = this.game.state;
       const key = st.nextTribulation(), cfg = D.tribulations[key];
       const fx = this.prepEffects();
-      const dmin = TT.Game.tribulationDamage(cfg.baseDamage, 1, st.danDoc, fx.reduction);
-      const dmax = TT.Game.tribulationDamage(cfg.baseDamage, cfg.waves, st.danDoc, fx.reduction);
+      const dmin = TT.Game.tribulationDamage(cfg.baseDamage, 1, st.danDoc, fx.reduction, st.stats.clanLightningResistance);
+      const dmax = TT.Game.tribulationDamage(cfg.baseDamage, cfg.waves, st.danDoc, fx.reduction, st.stats.clanLightningResistance);
       const surv = this.estimateSurvival(cfg, fx);
       const slot = (cat, title) => {
         const id = this.prep[cat];

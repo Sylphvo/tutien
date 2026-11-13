@@ -21,14 +21,653 @@ window.TT = window.TT || {};
   }
   function rgba(hex, a) { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
 
+  function drawSectAura(ctx, x, y, t, color, radius) {
+    if (!color) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = rgba(color, 0.3 + Math.sin(t * 2.2) * 0.08);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(x, y, radius + Math.sin(t * 1.7) * 1.5, 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Dáng lưỡi kiếm cho skin kiếm (D.swordSkins[].shape).
   const SWORD_SHAPES = {
     jian:  { len: 1,    w: 1,    taper: 0.67, guard: 1,    blunt: false }, // trường kiếm thẳng
     thin:  { len: 1.08, w: 0.72, taper: 0.7,  guard: 0.8,  blunt: false }, // kiếm mảnh
     broad: { len: 1,    w: 1.4,  taper: 0.85, guard: 1.15, blunt: false }, // bản rộng
     heavy: { len: 0.95, w: 1.8,  taper: 0.95, guard: 1.3,  blunt: true },  // trọng kiếm mũi bằng
-    solar_flame: { len: 1.08, w: 1.3, taper: 0.62, guard: 1.5, blunt: false }
+    solar_flame: { len: 1.08, w: 1.3, taper: 0.62, guard: 1.5, blunt: false },
+    crystal_sword: { len: 1.15, w: 1.2, taper: 0.65, guard: 1.2, blunt: false }
   };
+
+  // ---- Quản lý Sprite Sheet & Khử Nền Caro (Sprite Sheet & Background Filter) ----
+  const CRYSTAL_SWORD_PIVOT_X = 0.65;
+  const CRYSTAL_SWORD_PIVOT_Y = 0.30;
+  const CRYSTAL_SWORD_BASE_ANGLE = Math.atan2(1204 - 1308 * CRYSTAL_SWORD_PIVOT_Y, 219 - 736 * CRYSTAL_SWORD_PIVOT_X); // ~1.88015 rad
+  const CRYSTAL_SWORD_BLADE_LEN = Math.hypot(219 - 736 * CRYSTAL_SWORD_PIVOT_X, 1204 - 1308 * CRYSTAL_SWORD_PIVOT_Y); // ~852.05 px
+
+  const SHEET_CONFIGS = {
+    crystal_sword: ['assets/crystal_sword.png', 'src/tutien/assets/crystal_sword.png', 'kiem/crystal_sword.png', '../kiem/crystal_sword.png', '../../src/tutien/assets/crystal_sword.png'],
+    sheet1: ['assets/sheet1.png', 'src/tutien/assets/sheet1.png', '../assets/sheet1.png', '../../src/tutien/assets/sheet1.png'],
+    sheet2: ['assets/sheet2.png', 'src/tutien/assets/sheet2.png', '../assets/sheet2.png', '../../src/tutien/assets/sheet2.png'],
+    sheet3: ['assets/sheet3.png', 'src/tutien/assets/sheet3.png', '../assets/sheet3.png', '../../src/tutien/assets/sheet3.png']
+  };
+
+  const loadedRawImages = {};       // key -> HTMLImageElement
+  const cleanedSheetCanvases = {};   // key -> Offscreen HTMLCanvasElement (đã lọc nền)
+  const weaponTrimmedSprites = {};   // skinId -> { canvas, pivotX, pivotY, baseAngleOffset, bladeLen, w, h }
+
+  /**
+   * Khử nền thông minh: Color-keying với tolerance (mặc định 35) + feather làm mềm viền + flood fill từ biên.
+   */
+  function cleanImageBackgroundAdvanced(sourceImg, options) {
+    if (typeof document === 'undefined') return sourceImg;
+    const w = sourceImg.naturalWidth || sourceImg.width;
+    const h = sourceImg.naturalHeight || sourceImg.height;
+    if (!w || !h) return sourceImg;
+
+    options = options || {};
+    const tolerance = options.tolerance !== undefined ? options.tolerance : 35;
+    const feather = options.feather !== undefined ? options.feather : 6;
+    const mode = options.mode || 'auto'; // 'auto' | 'white' | 'black'
+
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(sourceImg, 0, 0);
+
+    try {
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const d = imgData.data;
+
+      // 1. Lấy mẫu màu ở 4 góc ảnh: (0,0), (w-1,0), (0,h-1), (w-1,h-1)
+      const corners = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]];
+      const cornerColors = [];
+      let maxCornerAlpha = 0;
+      let avgR = 0, avgG = 0, avgB = 0;
+      for (const [cx, cy] of corners) {
+        const idx = (cy * w + cx) * 4;
+        const a = d[idx + 3];
+        if (a > maxCornerAlpha) maxCornerAlpha = a;
+        cornerColors.push([d[idx], d[idx + 1], d[idx + 2], a]);
+        avgR += d[idx]; avgG += d[idx + 1]; avgB += d[idx + 2];
+      }
+      avgR /= 4; avgG /= 4; avgB /= 4;
+
+      // Xóa nhiễu alpha mờ đục quanh ảnh (nếu có alpha < 18)
+      for (let i = 3; i < d.length; i += 4) {
+        if (d[i] > 0 && d[i] < 18) d[i] = 0;
+      }
+
+      if (maxCornerAlpha >= 18) {
+        const isWhiteBg = mode === 'white' || (mode === 'auto' && avgR > 210 && avgG > 210 && avgB > 210);
+        const isDarkBg = mode === 'black' || (mode === 'auto' && avgR < 45 && avgG < 45 && avgB < 45);
+
+        const visited = new Uint8Array(w * h);
+        const queue = [];
+
+        // Đẩy toàn bộ pixel viền 4 cạnh vào hàng đợi flood fill
+        for (let x = 0; x < w; x++) {
+          queue.push(0 * w + x);
+          queue.push((h - 1) * w + x);
+        }
+        for (let y = 0; y < h; y++) {
+          queue.push(y * w + 0);
+          queue.push(y * w + (w - 1));
+        }
+
+        function isBgPixel(r, g, b, a) {
+          if (a < 18) return true;
+          if (isWhiteBg) {
+            return r >= 255 - tolerance && g >= 255 - tolerance && b >= 255 - tolerance;
+          }
+          if (isDarkBg) {
+            return r <= tolerance && g <= tolerance && b <= tolerance;
+          }
+          for (const [cr, cg, cb, ca] of cornerColors) {
+            if (ca < 18) continue;
+            if (Math.abs(r - cr) <= tolerance && Math.abs(g - cg) <= tolerance && Math.abs(b - cb) <= tolerance) {
+              return true;
+            }
+          }
+          // Nền ô vuông caro xám/trắng
+          const isGray = Math.abs(r - g) < 12 && Math.abs(g - b) < 12;
+          if (isGray && (r < 60 || r > 195)) {
+            for (const [cr] of cornerColors) {
+              if (Math.abs(r - cr) <= tolerance + 10) return true;
+            }
+          }
+          return false;
+        }
+
+        let head = 0;
+        while (head < queue.length) {
+          const p = queue[head++];
+          if (visited[p]) continue;
+          visited[p] = 1;
+
+          const px = p % w;
+          const py = Math.floor(p / w);
+          const idx = p * 4;
+          const r = d[idx], g = d[idx + 1], b = d[idx + 2], a = d[idx + 3];
+
+          if (isBgPixel(r, g, b, a)) {
+            d[idx + 3] = 0; // Biến nền thành trong suốt hoàn toàn
+
+            if (px > 0 && !visited[p - 1]) queue.push(p - 1);
+            if (px < w - 1 && !visited[p + 1]) queue.push(p + 1);
+            if (py > 0 && !visited[p - w]) queue.push(p - w);
+            if (py < h - 1 && !visited[p + w]) queue.push(p + w);
+          } else if (feather > 0) {
+            // Làm mềm viền cho pixel giáp ranh
+            let minDiff = 255;
+            if (isWhiteBg) minDiff = 255 - Math.min(r, g, b);
+            else if (isDarkBg) minDiff = Math.max(r, g, b);
+            else {
+              for (const [cr, cg, cb] of cornerColors) {
+                const diff = Math.max(Math.abs(r - cr), Math.abs(g - cg), Math.abs(b - cb));
+                if (diff < minDiff) minDiff = diff;
+              }
+            }
+            if (minDiff > tolerance && minDiff <= tolerance + feather) {
+              const factor = (minDiff - tolerance) / feather;
+              d[idx + 3] = Math.round(d[idx + 3] * factor);
+            }
+          }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+      }
+    } catch (e) {}
+    return cv;
+  }
+
+  function cleanImageBackground(sourceImg) {
+    return cleanImageBackgroundAdvanced(sourceImg, { tolerance: 35, feather: 6 });
+  }
+
+  function loadSheetImage(sheetKey) {
+    if (loadedRawImages[sheetKey]) return loadedRawImages[sheetKey];
+    if (typeof Image === 'undefined') return null;
+
+    const img = new Image();
+    loadedRawImages[sheetKey] = img;
+    const candidates = SHEET_CONFIGS[sheetKey] || [sheetKey, 'assets/' + sheetKey + '.png'];
+    let idx = 0;
+
+    img.onload = () => {
+      cleanedSheetCanvases[sheetKey] = cleanImageBackground(img);
+      for (const k in weaponTrimmedSprites) {
+        if (k.startsWith(sheetKey)) delete weaponTrimmedSprites[k];
+      }
+      if (window.TT && window.TT.Character && window.TT.Character.invalidateSheets) {
+        window.TT.Character.invalidateSheets();
+      }
+    };
+    img.onerror = () => {
+      idx++;
+      if (idx < candidates.length) {
+        img.src = candidates[idx];
+      }
+    };
+    img.src = candidates[0];
+    return img;
+  }
+
+  // Khởi động load trước các file sheet
+  for (const k in SHEET_CONFIGS) {
+    loadSheetImage(k);
+  }
+
+  function getWeaponSprite(skin) {
+    if (!skin || (!skin.sheet && !skin.sprite && !skin.customImg && skin.shape !== 'crystal_sword')) {
+      return null;
+    }
+    const id = skin.id || (skin.sheet ? skin.sheet + '_' + (skin.sx || 0) : 'CUSTOM');
+    if (weaponTrimmedSprites[id]) {
+      return weaponTrimmedSprites[id];
+    }
+
+    // 1. Ảnh đơn lẻ (crystal_sword.png hoặc customImg)
+    if (skin.sprite && !skin.sheet) {
+      let srcImg = skin.customImg;
+      if (!srcImg) {
+        const sheetName = skin.sprite.includes('crystal_sword') ? 'crystal_sword' : skin.sprite;
+        srcImg = loadedRawImages[sheetName] || loadSheetImage(sheetName);
+      }
+      if (!srcImg || !srcImg.complete || (srcImg.naturalWidth === 0 && srcImg.width === 0)) return null;
+
+      const cleaned = cleanImageBackground(srcImg);
+      const entry = {
+        canvas: cleaned,
+        pivotX: skin.pivotX !== undefined ? skin.pivotX : CRYSTAL_SWORD_PIVOT_X,
+        pivotY: skin.pivotY !== undefined ? skin.pivotY : CRYSTAL_SWORD_PIVOT_Y,
+        baseAngleOffset: skin.baseAngleOffset !== undefined ? skin.baseAngleOffset : CRYSTAL_SWORD_BASE_ANGLE,
+        bladeLen: skin.bladeLen || CRYSTAL_SWORD_BLADE_LEN,
+        w: cleaned.width,
+        h: cleaned.height
+      };
+      weaponTrimmedSprites[id] = entry;
+      return entry;
+    }
+
+    // 2. Sprite Sheet (sheet1, sheet2, sheet3)
+    if (skin.sheet) {
+      const sheetCanvas = cleanedSheetCanvases[skin.sheet];
+      if (!sheetCanvas) {
+        loadSheetImage(skin.sheet);
+        return null;
+      }
+
+      let sx = skin.sx, sy = skin.sy, sw = skin.sw, sh = skin.sh;
+      if (sx === undefined && skin.row !== undefined && skin.col !== undefined && skin.rows && skin.cols) {
+        const cellW = sheetCanvas.width / skin.cols;
+        const cellH = sheetCanvas.height / skin.rows;
+        sx = Math.round(skin.col * cellW);
+        sy = Math.round(skin.row * cellH);
+        sw = Math.round(cellW);
+        sh = Math.round(cellH);
+      }
+      if (sx === undefined) {
+        sx = 0; sy = 0; sw = sheetCanvas.width; sh = sheetCanvas.height;
+      }
+
+      if (typeof document === 'undefined') {
+        const entry = {
+          canvas: sheetCanvas,
+          pivotX: skin.pivotX !== undefined ? skin.pivotX : 0.5,
+          pivotY: skin.pivotY !== undefined ? skin.pivotY : 0.5,
+          baseAngleOffset: skin.baseAngleOffset !== undefined ? skin.baseAngleOffset : 0,
+          bladeLen: skin.bladeLen || sh,
+          w: sw,
+          h: sh
+        };
+        weaponTrimmedSprites[id] = entry;
+        return entry;
+      }
+
+      // Crop & Auto-trim
+      const tempCv = document.createElement('canvas');
+      tempCv.width = sw; tempCv.height = sh;
+      const tCtx = tempCv.getContext('2d');
+      tCtx.drawImage(sheetCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+      let trimX = 0, trimY = 0, trimW = sw, trimH = sh;
+      try {
+        const imgData = tCtx.getImageData(0, 0, sw, sh);
+        const d = imgData.data;
+        let minX = sw, maxX = 0, minY = sh, maxY = 0;
+        for (let y = 0; y < sh; y++) {
+          for (let x = 0; x < sw; x++) {
+            if (d[(y * sw + x) * 4 + 3] > 18) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        if (minX <= maxX && minY <= maxY) {
+          trimX = minX; trimY = minY;
+          trimW = maxX - minX + 1;
+          trimH = maxY - minY + 1;
+        }
+      } catch (err) {}
+
+      const trimmedCv = document.createElement('canvas');
+      trimmedCv.width = trimW; trimmedCv.height = trimH;
+      const trCtx = trimmedCv.getContext('2d');
+      trCtx.drawImage(tempCv, trimX, trimY, trimW, trimH, 0, 0, trimW, trimH);
+
+      const defaultBaseAngle = skin.sheet === 'sheet1' ? -Math.PI / 2 : (skin.sheet === 'sheet2' ? 1.8118 : Math.PI / 2);
+      const defaultPivotY = skin.sheet === 'sheet1' ? 0.90 : (skin.sheet === 'sheet2' ? 0.08 : 0.09);
+
+      const entry = {
+        canvas: trimmedCv,
+        pivotX: skin.pivotX !== undefined ? skin.pivotX : 0.50,
+        pivotY: skin.pivotY !== undefined ? skin.pivotY : defaultPivotY,
+        baseAngleOffset: skin.baseAngleOffset !== undefined ? skin.baseAngleOffset : defaultBaseAngle,
+        bladeLen: skin.bladeLen || trimH,
+        w: trimW,
+        h: trimH
+      };
+      weaponTrimmedSprites[id] = entry;
+      return entry;
+    }
+
+    return null;
+  }
+
+  function renderSwordSprite(ctx, skinOrImg, x, y, angle, len, alpha, pivotX, pivotY, baseAngle, bladeLen) {
+    if (skinOrImg && typeof skinOrImg === 'object' && ('id' in skinOrImg || 'sheet' in skinOrImg || 'shape' in skinOrImg || 'sprite' in skinOrImg)) {
+      const sprite = getWeaponSprite(skinOrImg);
+      if (!sprite || !sprite.canvas) return false;
+      const cv = sprite.canvas;
+      const px = cv.width * sprite.pivotX;
+      const py = cv.height * sprite.pivotY;
+      const scale = (len * 1.15) / sprite.bladeLen;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle - sprite.baseAngleOffset);
+      ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+
+      const prevSmooth = ctx.imageSmoothingEnabled;
+      const prevQuality = ctx.imageSmoothingQuality;
+      ctx.imageSmoothingEnabled = true;
+      if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+
+      ctx.drawImage(cv, -px * scale, -py * scale, cv.width * scale, cv.height * scale);
+
+      ctx.imageSmoothingEnabled = prevSmooth;
+      if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = prevQuality;
+      ctx.restore();
+      return true;
+    }
+
+    const img = skinOrImg;
+    if (!img || (img.naturalWidth === 0 && img.width === 0)) return false;
+    const imgW = img.naturalWidth || img.width;
+    const imgH = img.naturalHeight || img.height;
+    const pxRatio = pivotX !== undefined ? pivotX : CRYSTAL_SWORD_PIVOT_X;
+    const pyRatio = pivotY !== undefined ? pivotY : CRYSTAL_SWORD_PIVOT_Y;
+    const bAngle = baseAngle !== undefined ? baseAngle : CRYSTAL_SWORD_BASE_ANGLE;
+    const bLen = bladeLen || (imgH ? imgH * 0.65 : CRYSTAL_SWORD_BLADE_LEN);
+    const scale = (len * 1.15) / bLen;
+    const px = imgW * pxRatio;
+    const py = imgH * pyRatio;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle - bAngle);
+    ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+
+    const prevSmooth = ctx.imageSmoothingEnabled;
+    const prevQuality = ctx.imageSmoothingQuality;
+    ctx.imageSmoothingEnabled = true;
+    if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+
+    ctx.drawImage(img, -px * scale, -py * scale, imgW * scale, imgH * scale);
+
+    ctx.imageSmoothingEnabled = prevSmooth;
+    if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = prevQuality;
+    ctx.restore();
+    return true;
+  }
+
+  function renderCrystalSwordSprite(ctx, x, y, angle, len, alpha) {
+    const skin = (window.TT && window.TT.DATA && window.TT.DATA.swordSkins && window.TT.DATA.swordSkins.find(s => s.id === 'BANG_TINH')) || {
+      id: 'BANG_TINH', sprite: 'assets/crystal_sword.png', baseAngleOffset: CRYSTAL_SWORD_BASE_ANGLE,
+      pivotX: CRYSTAL_SWORD_PIVOT_X, pivotY: CRYSTAL_SWORD_PIVOT_Y, bladeLen: CRYSTAL_SWORD_BLADE_LEN
+    };
+    return renderSwordSprite(ctx, skin, x, y, angle, len, alpha);
+  }
+
+  // ---- HỆ THỐNG LOAD, TÁCH NỀN VÀ CẮT LƯỚI SPRITE NÂNG CAO ----
+  const advancedSpriteCache = {};
+  const rawImageMap = {};
+
+  function loadAndCleanSprite(src, options, callback) {
+    options = options || {};
+    const key = src + '_' + (options.rows || 1) + 'x' + (options.cols || 1) + '_' + (options.row !== undefined ? options.row : 'all') + '_' + (options.col !== undefined ? options.col : 'all') + '_' + (options.tolerance || 35) + '_' + (options.mode || 'auto') + '_' + (options.trim !== false);
+    if (advancedSpriteCache[key]) {
+      if (callback) callback(advancedSpriteCache[key]);
+      return advancedSpriteCache[key];
+    }
+
+    const res = { canvas: null, w: 0, h: 0, ready: false };
+    advancedSpriteCache[key] = res;
+
+    if (typeof document === 'undefined' || typeof Image === 'undefined') {
+      return res;
+    }
+
+    const candidates = [
+      src,
+      'assets/' + src,
+      'src/tutien/assets/' + src,
+      '../assets/' + src,
+      '../../src/tutien/assets/' + src
+    ];
+
+    function processImg(img) {
+      const cleaned = cleanImageBackgroundAdvanced(img, options);
+      let finalCanvas = cleaned;
+      let finalW = cleaned.width;
+      let finalH = cleaned.height;
+
+      if (options.rows && options.cols && options.row !== undefined && options.col !== undefined) {
+        const cellW = cleaned.width / options.cols;
+        const cellH = cleaned.height / options.rows;
+        const sx = Math.round(options.col * cellW);
+        const sy = Math.round(options.row * cellH);
+        const sw = Math.round(cellW);
+        const sh = Math.round(cellH);
+
+        const tempCv = document.createElement('canvas');
+        tempCv.width = sw; tempCv.height = sh;
+        const tctx = tempCv.getContext('2d');
+        tctx.drawImage(cleaned, sx, sy, sw, sh, 0, 0, sw, sh);
+
+        if (options.trim !== false) {
+          let minX = sw, maxX = 0, minY = sh, maxY = 0;
+          try {
+            const idata = tctx.getImageData(0, 0, sw, sh).data;
+            for (let y = 0; y < sh; y++) {
+              for (let x = 0; x < sw; x++) {
+                if (idata[(y * sw + x) * 4 + 3] > 18) {
+                  if (x < minX) minX = x;
+                  if (x > maxX) maxX = x;
+                  if (y < minY) minY = y;
+                  if (y > maxY) maxY = y;
+                }
+              }
+            }
+          } catch (e) {}
+
+          if (minX <= maxX && minY <= maxY) {
+            const tw = maxX - minX + 1;
+            const th = maxY - minY + 1;
+            const trimCv = document.createElement('canvas');
+            trimCv.width = tw; trimCv.height = th;
+            trimCv.getContext('2d').drawImage(tempCv, minX, minY, tw, th, 0, 0, tw, th);
+            finalCanvas = trimCv;
+            finalW = tw;
+            finalH = th;
+          } else {
+            finalCanvas = tempCv;
+            finalW = sw;
+            finalH = sh;
+          }
+        } else {
+          finalCanvas = tempCv;
+          finalW = sw;
+          finalH = sh;
+        }
+      }
+
+      res.canvas = finalCanvas;
+      res.w = finalW;
+      res.h = finalH;
+      res.ready = true;
+      if (callback) callback(res);
+      if (window.TT && window.TT.Character && window.TT.Character.invalidateSheets) {
+        window.TT.Character.invalidateSheets();
+      }
+    }
+
+    let img = rawImageMap[src];
+    if (img && img.complete && (img.naturalWidth > 0 || img.width > 0)) {
+      processImg(img);
+      return res;
+    }
+
+    if (!img) {
+      img = new Image();
+      rawImageMap[src] = img;
+      let idx = 0;
+      img.onload = () => processImg(img);
+      img.onerror = () => {
+        idx++;
+        if (idx < candidates.length) {
+          img.src = candidates[idx];
+        }
+      };
+      img.src = candidates[0];
+    } else {
+      const oldOnload = img.onload;
+      img.onload = () => {
+        if (oldOnload) oldOnload();
+        processImg(img);
+      };
+    }
+
+    return res;
+  }
+
+  function getGridSprite(src, rows, cols, row, col, options) {
+    return loadAndCleanSprite(src, Object.assign({ rows, cols, row, col }, options));
+  }
+
+  function getSkillIcon(col, row, options) {
+    return loadAndCleanSprite('skill_icons.jpg', Object.assign({ rows: 18, cols: 14, row, col, trim: false, tolerance: 35, mode: 'white' }, options));
+  }
+
+  function getClanBadge(col, row, options) {
+    return loadAndCleanSprite('clan_badges.jpg', Object.assign({ rows: 2, cols: 5, row, col, trim: true, tolerance: 35, mode: 'white' }, options));
+  }
+
+  function getElementBadge(col, row, options) {
+    return loadAndCleanSprite('ninja_elements.jpg', Object.assign({ rows: 2, cols: 5, row, col, trim: true, tolerance: 35, mode: 'white' }, options));
+  }
+
+  function getEyeSprite(col, row, options) {
+    return loadAndCleanSprite('eyes_grid.jpg', Object.assign({ rows: 8, cols: 5, row, col, trim: true, tolerance: 35, mode: 'white' }, options));
+  }
+
+  function getHaloSprite(idOrIndex, options) {
+    if (idOrIndex === 'HALO_CRIMSON_SUN' || idOrIndex === 'crimson_sun' || idOrIndex === 0) {
+      return loadAndCleanSprite('halo_crimson_sun.jpg', Object.assign({ tolerance: 35, mode: 'black' }, options));
+    }
+    const idx = typeof idOrIndex === 'number' ? idOrIndex - 1 : parseInt(String(idOrIndex).replace(/[^0-9]/g, ''), 10) - 1 || 0;
+    const col = Math.max(0, idx % 3);
+    const row = Math.max(0, Math.min(3, Math.floor(idx / 3)));
+    return loadAndCleanSprite('halos_grid.jpg', Object.assign({ rows: 4, cols: 3, row, col, tolerance: 35, mode: 'black' }, options));
+  }
+
+  function getWingsSprite(idOrIndex, options) {
+    const isGolden = idOrIndex === 'WINGS_GOLDEN_DAWN' || idOrIndex === 1 || idOrIndex === 'golden';
+    const row = isGolden ? 1 : 0;
+    return loadAndCleanSprite('wings_pair.jpg', Object.assign({ rows: 2, cols: 1, row, col: 0, tolerance: 35, mode: 'black' }, options));
+  }
+
+  const AVATAR_FILES = {
+    AVATAR_URANOS: 'skin_uranos.jpg',
+    AVATAR_COSMIC: 'skin_cosmic.jpg',
+    AVATAR_PRISM: 'skin_prism.jpg',
+    AVATAR_WATER_DRAGON: 'skin_water_dragon.jpg',
+    AVATAR_WHITE_PURPLE: 'skin_white_purple.jpg',
+    AVATAR_CHAOS_TRINITY: 'skin_chaos_trinity.jpg',
+    AVATAR_RIKAMU: 'skin_rikami.jpg',
+    AVATAR_NETHER_EMPRESS: 'skin_nether_empress.jpg',
+    AVATAR_WINGED_SERAPH: 'skin_winged_seraph.jpg'
+  };
+
+  function getAvatarSprite(avatarId, options) {
+    const file = AVATAR_FILES[avatarId] || (avatarId && avatarId.endsWith('.jpg') ? avatarId : 'skin_uranos.jpg');
+    return loadAndCleanSprite(file, Object.assign({ tolerance: 30, mode: 'black' }, options));
+  }
+
+  const MONSTER_FILES = {
+    CUU_VI_THIEN_HO: 'boss_fox.jpg',
+    LOI_DINH_CU_SA: 'boss_shark.jpg',
+    HAC_AM_CU_HUNG: 'boss_bear.jpg',
+    HAN_BANG_CU_MA: 'boss_golem.jpg',
+    HU_KHONG_AM_LONG: 'boss_void_dragon.jpg',
+    HAC_ANH_TU_THAN: 'shadow_reaper.jpg',
+    HAC_ANH_KIEM_SI: 'shadow_swordsman.jpg',
+    BACH_COT_THICH_KHACH: 'shadow_assassin.jpg',
+    HU_KHONG_U_HON: 'shadow_wraith.jpg',
+    TOA_LIEM_MA_QUAN: 'shadow_chain_lord.png',
+    HAC_DA_THONG_SOAI: 'boss_shadow_general.jpg',
+    MONSTER_SCORPION: 'monster_scorpion.jpg',
+    NHAT_THUC_THAN_CAM: 'boss_solar_eclipse.jpg',
+    BANG_LINH_THAN_THU: 'boss_ice_phoenix.jpg',
+    KIM_SUNG_THIEN_LONG: 'boss_nether_dragon.jpg',
+    MONSTER_LIGHTNING: 'monster_lightning_frost.jpg',
+    MONSTER_FLAME: 'monster_flame_spikes.jpg'
+  };
+
+  function getMonsterSprite(monsterId, options) {
+    const file = MONSTER_FILES[monsterId] || (monsterId && (monsterId.endsWith('.jpg') || monsterId.endsWith('.png')) ? monsterId : null);
+    if (!file) return null;
+    return loadAndCleanSprite(file, Object.assign({ tolerance: 35, mode: 'black' }, options));
+  }
+
+  function drawHalo(ctx, x, y, radius, t, haloId, color) {
+    const sp = getHaloSprite(haloId || 'HALO_CRIMSON_SUN');
+    if (!sp || !sp.canvas) return false;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(t * 0.9);
+    const pulse = 1 + Math.sin(t * 3.2) * 0.05;
+    ctx.scale(pulse, pulse);
+    const size = radius * 2.2;
+    if (color && Art.glow) {
+      Art.glow(ctx, 0, 0, radius * 1.2, color, 0.35 + Math.sin(t * 4) * 0.1);
+    }
+    ctx.drawImage(sp.canvas, -size / 2, -size / 2, size, size);
+    ctx.restore();
+    return true;
+  }
+
+  function drawWings(ctx, x, y, width, t, wingId) {
+    const sp = getWingsSprite(wingId || 'WINGS_NIGHT_BLUE');
+    if (!sp || !sp.canvas) return false;
+    ctx.save();
+    ctx.translate(x, y);
+    const flap = 1 + Math.sin(t * 3.5) * 0.08;
+    ctx.scale(flap, 1);
+    const h = (width * sp.h) / (sp.w || 1);
+    ctx.drawImage(sp.canvas, -width / 2, -h / 2, width, h);
+    ctx.restore();
+    return true;
+  }
+
+  function drawAvatar(ctx, x, y, width, height, avatarId, t, flip) {
+    const sp = getAvatarSprite(avatarId);
+    if (!sp || !sp.canvas) return false;
+    ctx.save();
+    ctx.translate(x, y);
+    if (flip) ctx.scale(-1, 1);
+    const bob = Math.sin(t * 2.5) * 2.5;
+    ctx.drawImage(sp.canvas, -width / 2, -height + 14 + bob, width, height);
+    ctx.restore();
+    return true;
+  }
+
+  function drawEyes(ctx, x, y, width, height, eyeId, t, flip) {
+    let col = 0, row = 0;
+    if (typeof eyeId === 'object' && eyeId !== null) {
+      col = eyeId.col || 0; row = eyeId.row || 0;
+    } else if (typeof eyeId === 'number') {
+      col = eyeId % 5; row = Math.floor(eyeId / 5);
+    } else if (typeof eyeId === 'string') {
+      const num = parseInt(eyeId.replace(/[^0-9]/g, ''), 10) || 0;
+      col = num % 5; row = Math.floor(num / 5);
+    }
+    const sp = getEyeSprite(col, row);
+    if (!sp || !sp.canvas) return false;
+    ctx.save();
+    ctx.translate(x, y);
+    if (flip) ctx.scale(-1, 1);
+    ctx.drawImage(sp.canvas, -width / 2, -height / 2, width, height);
+    ctx.restore();
+    return true;
+  }
 
   function drawSolarFlameSword(ctx, x, y, angle, len, alpha, pal) {
     const blade = len * 1.22, width = len * 0.16;
@@ -263,7 +902,27 @@ window.TT = window.TT || {};
     },
 
     /** Phi kiếm phát sáng. skin (tuỳ chọn): phần tử D.swordSkins để đổi dáng và màu. */
-    drawSword(ctx, x, y, angle, len, color, alpha, skin) {
+    drawSword(ctx, x, y, angle, len, color, alpha, skin, t, moveState) {
+      const isSpriteSword = skin && (skin.sheet || skin.sprite || skin.customImg || skin.shape === 'crystal_sword' || skin.id === 'BANG_TINH' || skin.shape === 'sprite');
+      if (isSpriteSword) {
+        let bob = 0;
+        if (t !== undefined) {
+          const isWalk = moveState === 'walk' || moveState === true;
+          const freq = isWalk ? 10 : 3.5;
+          const amp = isWalk ? 2.5 : 1.2;
+          bob = Math.sin(t * freq) * amp;
+        }
+        const bx = -Math.sin(angle) * bob;
+        const by = Math.cos(angle) * bob;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const glowCol = skin.glowColor || (skin.pal && (skin.pal.gem || skin.pal.gold)) || color || '#7fe3ff';
+        Art.glow(ctx, x + bx + Math.cos(angle) * len * 0.45, y + by + Math.sin(angle) * len * 0.45, len * 0.75, glowCol, 0.35);
+        ctx.globalCompositeOperation = 'source-over';
+        const drawn = renderSwordSprite(ctx, skin, x + bx, y + by, angle, len, alpha);
+        ctx.restore();
+        if (drawn) return;
+      }
       if (skin && skin.shape === 'solar_flame') {
         drawSolarFlameSword(ctx, x, y, angle, len, alpha, skin.pal || {});
         return;
@@ -643,6 +1302,36 @@ window.TT = window.TT || {};
     }
     return (iconCache[key] = c.toDataURL());
   };
+
+  Art.crystalSwordImg = loadedRawImages.crystal_sword;
+  Art.drawSectAura = drawSectAura;
+  Art.loadedRawImages = loadedRawImages;
+  Art.cleanedSheetCanvases = cleanedSheetCanvases;
+  Art.weaponTrimmedSprites = weaponTrimmedSprites;
+  Art.cleanImageBackground = cleanImageBackground;
+  Art.cleanImageBackgroundAdvanced = cleanImageBackgroundAdvanced;
+  Art.getWeaponSprite = getWeaponSprite;
+  Art.renderSwordSprite = renderSwordSprite;
+  Art.renderCrystalSwordSprite = renderCrystalSwordSprite;
+  Art.CRYSTAL_SWORD_BASE_ANGLE = CRYSTAL_SWORD_BASE_ANGLE;
+  Art.CRYSTAL_SWORD_PIVOT_X = CRYSTAL_SWORD_PIVOT_X;
+  Art.CRYSTAL_SWORD_PIVOT_Y = CRYSTAL_SWORD_PIVOT_Y;
+  Art.CRYSTAL_SWORD_BLADE_LEN = CRYSTAL_SWORD_BLADE_LEN;
+
+  Art.loadAndCleanSprite = loadAndCleanSprite;
+  Art.getGridSprite = getGridSprite;
+  Art.getSkillIcon = getSkillIcon;
+  Art.getClanBadge = getClanBadge;
+  Art.getElementBadge = getElementBadge;
+  Art.getEyeSprite = getEyeSprite;
+  Art.getHaloSprite = getHaloSprite;
+  Art.getWingsSprite = getWingsSprite;
+  Art.getAvatarSprite = getAvatarSprite;
+  Art.getMonsterSprite = getMonsterSprite;
+  Art.drawHalo = drawHalo;
+  Art.drawWings = drawWings;
+  Art.drawAvatar = drawAvatar;
+  Art.drawEyes = drawEyes;
 
   TT.Art = Art;
 })(window.TT);

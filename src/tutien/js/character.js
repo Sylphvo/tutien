@@ -79,6 +79,43 @@ window.TT = window.TT || {};
   }
 
   // ------------------------------------------------------------ kiếm & tay
+  let currentPose = null;
+
+  function drawCrystalSwordFallback(g, L) {
+    const hw = 3.2, hw2 = 1.6, back = 4, gh = 7;
+    shape(g, c => c.rect(-10, -2, 10, 4), '#1a3048', 1.1);
+    dot(g, -11, 0, 2.6, '#9ee8ff');
+    shape(g, c => {
+      c.moveTo(1, -gh); c.lineTo(4, -gh * 0.6); c.lineTo(3, gh * 0.6); c.lineTo(1, gh);
+      c.lineTo(-1, gh * 0.6); c.lineTo(0, -gh * 0.6); c.closePath();
+    }, lin(g, 0, -gh, 0, gh, [[0, '#ffffff'], [0.5, '#9ee8ff'], [1, '#4a8aa8']]), 1.1);
+    shape(g, c => {
+      c.moveTo(4, -hw); c.lineTo(L - back, -hw2); c.lineTo(L, 0);
+      c.lineTo(L - back, hw2); c.lineTo(4, hw); c.closePath();
+    }, lin(g, 0, -hw, 0, hw, [[0, '#ffffff'], [0.4, '#e0f8ff'], [1, '#72c8f0']]), 1.2);
+    line(g, [[6, 0], [L - 4, 0]], 'rgba(255,255,255,0.95)', 1.2);
+    dot(g, L * 0.4, 0, 1.5, '#ffffff');
+    dot(g, L * 0.7, 0, 1.2, '#c8f0ff');
+  }
+
+  function crystalSword(g, hx, hy, a, customImg, sw) {
+    const L = 44;
+    g.save();
+    // Nhấp nhô & lắc nhẹ đồng bộ với nhịp thở (idle) và bước đi (walk)
+    const bob = currentPose ? (currentPose.bob || 0) * 0.45 : 0;
+    const sway = currentPose ? (currentPose.swing || 0) * 0.04 : 0;
+    g.translate(hx, hy + bob);
+    g.rotate(a + sway);
+    const target = sw || customImg;
+    const drawn = (TT.Art && TT.Art.renderSwordSprite)
+      ? TT.Art.renderSwordSprite(g, target, 0, 0, 0, L, 1)
+      : false;
+    if (!drawn) {
+      drawCrystalSwordFallback(g, L);
+    }
+    g.restore();
+  }
+
   function solarFlameSword(g, hx, hy, a) {
     const L = 44, hw = 3.2;
     g.save(); g.translate(hx, hy); g.rotate(a);
@@ -134,6 +171,12 @@ window.TT = window.TT || {};
 
   /** Trường kiếm trong toạ độ tay: gốc tại bàn tay, lưỡi theo góc a. */
   function sword(g, hx, hy, a) {
+    const sw = FEAT.swordSkin;
+    const isSprite = sw && (sw.sheet || sw.sprite || sw.customImg || sw.shape === 'crystal_sword' || sw.shape === 'sprite');
+    if (isSprite || FEAT.customImg || FEAT.blade === 'crystal_sword') {
+      crystalSword(g, hx, hy, a, FEAT.customImg, sw);
+      return;
+    }
     if (FEAT.blade === 'solar_flame') {
       solarFlameSword(g, hx, hy, a);
       return;
@@ -512,18 +555,25 @@ window.TT = window.TT || {};
 
   function drawFrame(g, dir, anim, f) {
     const p = pose(anim, f);
+    currentPose = p;
     g.lineJoin = 'round'; g.lineCap = 'round';
     g.save();
     if (dir === 'side') g.rotate(p.lean * 0.15);
     g.translate(0, p.bob);
     if (dir === 'side') drawSide(g, p); else if (dir === 'up') drawBack(g, p); else drawFront(g, p);
     g.restore();
+    currentPose = null;
   }
 
   // ------------------------------------------------------------ sprite sheet
   const sheets = {};
   const rows = {};
   const tintCache = {};
+
+  function invalidateSheets() {
+    for (const k in sheets) delete sheets[k];
+    for (const k in tintCache) delete tintCache[k];
+  }
 
   /** Tạo hình theo id: skin người chơi (D.skins) hoặc NPC (D.npcLooks). */
   /** Skin kiếm (D.swordSkins) theo id, hoặc undefined. */
@@ -539,7 +589,8 @@ window.TT = window.TT || {};
     const sw = !npc && swordSkin(swordId);
     const pal = Object.assign({}, BASE_PAL, npc ? npc.pal : (s ? s.pal : {}), sw ? sw.pal : {});
     if (!pal.hairDark || (npc && !npc.pal.hairDark) || (s && !s.pal.hairDark)) pal.hairDark = darken(pal.hair, 0.38);
-    const feat = npc ? Object.assign({ npc: true, sword: false }, npc.feat) : { sword: true, hideEye: true, blade: sw ? sw.shape : 'jian' };
+    const customImg = sw && (sw.customImg || (sw.sprite && typeof sw.sprite === 'object' ? sw.sprite : null));
+    const feat = npc ? Object.assign({ npc: true, sword: false }, npc.feat) : { sword: true, hideEye: true, blade: sw ? sw.shape : 'jian', customImg, swordSkin: sw };
     return { pal, feat, npc: !!npc };
   }
 
@@ -807,19 +858,75 @@ window.TT = window.TT || {};
     }
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath(); ctx.ellipse(x, y + FOOT_OFFSET, 17, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    if (st.sectColor && TT.Art && TT.Art.drawSectAura) TT.Art.drawSectAura(ctx, x, y + FOOT_OFFSET, t, st.sectColor, 22);
     const spirit = st.spirit !== false;
-    // Quay lưng về camera (hướng 'up') thì thần luân nằm giữa camera và nhân vật nên vẽ đè lên, mờ hơn.
     const lv = st.realm || 0;
     const wheelFront = fr.dir === 'up';
+
+    // -------------------------------------------------------------------------
+    // HỆ THỐNG 5 LỚP RENDER NHÂN VẬT (Z-ORDER TỪ SAU RA TRƯỚC)
+    // -------------------------------------------------------------------------
+    // Lớp 1 (Sau cùng - Thần Luân / Halo): xoay tròn chậm (angle += 0.015) có hiệu ứng phát sáng
+    const haloId = st.haloId || st.halo;
+    let haloDrawn = false;
+    if (haloId && TT.Art && TT.Art.drawHalo) {
+      haloDrawn = TT.Art.drawHalo(ctx, x, y - 32, 38, t, haloId, color);
+    }
     if (spirit) spiritBack(ctx, x, y, t, st, color, power);
-    if (spirit && !wheelFront) daoWheel(ctx, x, y, t, st, color, lv, 1);
-    blit(ctx, sheet, fr, x, y);
-    if (st.hurt) { ctx.save(); ctx.globalAlpha = 0.45; blit(ctx, tinted(sheet, skinId, '#ffffff'), fr, x, y); ctx.restore(); }
-    if (spirit && wheelFront) daoWheel(ctx, x, y, t, st, color, lv, 0.6);
+    if (!haloDrawn && spirit && !wheelFront) {
+      daoWheel(ctx, x, y, t, st, color, lv, 1);
+    }
+
+    // Lớp 2 (Cánh / Tiên Dực): đập cánh nhẹ nhàng (scale(1 + sin(t*3.5)*0.08, 1))
+    const wingsId = st.wingsId || st.wings;
+    if (wingsId && TT.Art && TT.Art.drawWings) {
+      TT.Art.drawWings(ctx, x, y - 28, 72, t, wingsId);
+    }
+
+    // Lớp 3 (Thân Thể / Ngoại Trang Hóa Thần): Chuyển đổi giữa Chibi và Pháp Tướng Hóa Thần
+    const avatarSkin = st.avatarSkin || st.phapTuong;
+    let avatarDrawn = false;
+    if (avatarSkin && TT.Art && TT.Art.drawAvatar) {
+      avatarDrawn = TT.Art.drawAvatar(ctx, x, y, 92, 114, avatarSkin, t, fr.dir === 'side' && aim && aim.x < x);
+    }
+    if (!avatarDrawn) {
+      blit(ctx, sheet, fr, x, y);
+      if (st.hurt) {
+        ctx.save(); ctx.globalAlpha = 0.45; blit(ctx, tinted(sheet, skinId, '#ffffff'), fr, x, y); ctx.restore();
+      }
+    } else if (st.hurt) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45;
+      TT.Art.drawAvatar(ctx, x, y, 92, 114, avatarSkin, t, fr.dir === 'side' && aim && aim.x < x);
+      ctx.restore();
+    }
+
+    // Lớp 4 (Tiên/Ma Nhãn): Gắn cặp mắt Tiên/Ma hoặc con mắt thứ 3 phát sáng trên trán
+    const eyeId = st.eyeId || st.eyes;
+    if (eyeId && fr.dir !== 'up' && TT.Art && TT.Art.drawEyes) {
+      const eyeFlip = fr.dir === 'side' && aim && aim.x < x;
+      const eyeX = eyeFlip ? x - 2 : x + 2;
+      TT.Art.drawEyes(ctx, eyeX, y - 48, 28, 14, eyeId, t, eyeFlip);
+    }
+
+    // Lớp 5 (Trước cùng - Vũ Khí, Thần Luân nếu quay lưng, Linh khí trước & Danh Hiệu)
+    if (!haloDrawn && spirit && wheelFront) {
+      daoWheel(ctx, x, y, t, st, color, lv, 0.6);
+    }
     if (spirit) spiritFront(ctx, x, y, t, color, power);
+    if (st.title) {
+      ctx.save();
+      ctx.font = 'bold 10px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(5,8,14,0.9)';
+      ctx.strokeText(st.title, x, y - 64);
+      ctx.fillStyle = st.titleColor || st.sectColor || '#ffd23f';
+      ctx.fillText(st.title, x, y - 64);
+      ctx.restore();
+    }
     return fr;
   }
 
-  TT.Character = { draw, buildSheet, rows, ANIMS, DIRS, FW, FH, PAL: BASE_PAL };
+  TT.Character = { draw, buildSheet, invalidateSheets, rows, ANIMS, DIRS, FW, FH, PAL: BASE_PAL };
   TT.Art.drawPlayer = draw;
 })(window.TT);

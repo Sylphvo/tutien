@@ -230,6 +230,15 @@ window.TT = window.TT || {};
     rock(g, 0.86 * R, -1.05 * R + sway, 0.24 * R, 6, sf(-1.3 * R, -0.8 * R), lw);
     rock(g, 0.98 * R - step * 0.15 * R, -0.6 * R + sway, 0.38 * R, 7, sf(-1 * R, -0.25 * R), lw);
     stroke(g, [[0.85 * R - step * 0.15 * R, -0.75 * R + sway], [1.1 * R - step * 0.15 * R, -0.5 * R + sway]], TT.Art.rgba(P.rune, 0.8), 0.04 * R);
+    if (P.boss) {
+      for (const sx of [-1, 1]) {
+        rock(g, sx * 0.86 * R, -2.05 * R + sway, 0.26 * R, sx * 4, sf(-2.35 * R, -1.8 * R), lw);
+      }
+      rock(g, 0.12 * R, -2.32 * R + sway, 0.26 * R, 9, sf(-2.6 * R, -2.05 * R), lw);
+      for (const [col, w] of [[TT.Art.rgba(P.rune, 0.5), 0.1 * R], [P.core || '#fff3c2', 0.022 * R]]) {
+        stroke(g, [[-0.12 * R, -2.25 * R + sway], [0.12 * R, -2.38 * R + sway], [0.35 * R, -2.22 * R + sway]], col, w);
+      }
+    }
   }
 
   // ------------------------------------------------------------------ Mộc Yêu
@@ -415,6 +424,22 @@ window.TT = window.TT || {};
   }
 
   const LAVA = { hi: '#5e4a46', mid: '#2e2422', dark: '#120c0b', rune: '#ff6a1a', core: '#fff2a0', moss: 'rgba(255,120,40,0.55)' };
+  const FORTRESS = { hi: '#c8b48c', mid: '#786b55', dark: '#2f281e', rune: '#ffd36a', core: '#fff3c2', moss: 'rgba(180,150,80,0.7)', boss: true };
+
+  // ------------------------------------------------------------------ Vẽ Monster bằng Sprite / Procedural
+  function drawSpriteMonster(g, R, ph, monsterKey, boxW, boxH) {
+    const bob = Math.sin(ph) * 0.04 * R;
+    const sp = TT.Art && TT.Art.getMonsterSprite ? TT.Art.getMonsterSprite(monsterKey) : null;
+    if (sp && sp.canvas) {
+      const w = boxW * R, h = boxH * R;
+      g.drawImage(sp.canvas, -w / 2, -h + bob, w, h);
+    } else {
+      g.fillStyle = '#222736';
+      g.beginPath();
+      g.ellipse(0, -boxH * R * 0.45 + bob, boxW * R * 0.4, boxH * R * 0.45, 0, 0, TAU);
+      g.fill();
+    }
+  }
 
   // ------------------------------------------------------------------ bảng loài
   // box: kích thước frame theo đơn vị R; eyes: vị trí mắt (đơn vị r, hướng phải) để vẽ ánh sáng lúc chạy.
@@ -430,14 +455,36 @@ window.TT = window.TT || {};
     BANG_HO: { draw: (g, R, ph) => drawFox(g, R, ph, FOX), box: [3.4, 2.4], fps: 12, eyes: [[1.08, -1.37]], aura: '#9fe0ff' },
     TUYET_VIEN: { draw: drawYeti, box: [2.4, 2.4], fps: 6, eyes: [[0.45, -1.78]] },
     DUNG_NHAM_MA: { draw: (g, R, ph) => drawGolem(g, R, ph, LAVA), box: [3.0, 2.6], fps: 5, eyes: [[0.21, -1.98]], aura: '#ff5a1a' },
-    CUU_VI_HO: { draw: (g, R, ph) => drawFox(g, R, ph, FOX_QUEEN), box: [5.0, 3.3], fps: 10, eyes: [[1.08, -1.37]], aura: '#bfe6ff' }
+    CUU_VI_HO: { draw: (g, R, ph) => drawFox(g, R, ph, FOX_QUEEN), box: [5.0, 3.3], fps: 10, eyes: [[1.08, -1.37]], aura: '#bfe6ff' },
+    THANH_CHU: { draw: (g, R, ph) => drawGolem(g, R, ph, FORTRESS), box: [3.4, 2.9], fps: 5, eyes: [[0.21, -1.98]], aura: '#d8b778' },
+
+    // CÁC ĐẠI BOSS THƯỢNG CỔ
+    CUU_VI_THIEN_HO: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'CUU_VI_THIEN_HO', 4.4, 3.2), box: [4.4, 3.2], fps: 8, eyes: [[0.8, -1.2]], aura: '#38bdf8' },
+    LOI_DINH_CU_SA: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'LOI_DINH_CU_SA', 4.2, 2.6), box: [4.2, 2.6], fps: 10, eyes: [[1.0, -1.1]], aura: '#0ea5e9' },
+    HAC_AM_CU_HUNG: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'HAC_AM_CU_HUNG', 3.8, 3.2), box: [3.8, 3.2], fps: 6, eyes: [[0.5, -1.4]], aura: '#ef4444' },
+    HAN_BANG_CU_MA: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'HAN_BANG_CU_MA', 4.0, 3.4), box: [4.0, 3.4], fps: 6, eyes: [[0.4, -1.6]], aura: '#7dd3fc' },
+    HU_KHONG_AM_LONG: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'HU_KHONG_AM_LONG', 4.6, 3.6), box: [4.6, 3.6], fps: 8, eyes: [[0.9, -1.4]], aura: '#a855f7' },
+
+    // QUÂN ĐOÀN HẮC ẢNH
+    HAC_ANH_TU_THAN: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'HAC_ANH_TU_THAN', 2.8, 3.0), box: [2.8, 3.0], fps: 8, eyes: [[0.3, -1.3]], aura: '#6366f1' },
+    HAC_ANH_KIEM_SI: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'HAC_ANH_KIEM_SI', 2.8, 3.0), box: [2.8, 3.0], fps: 8, eyes: [[0.3, -1.2]], aura: '#60a5fa' },
+    BACH_COT_THICH_KHACH: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'BACH_COT_THICH_KHACH', 2.5, 2.8), box: [2.5, 2.8], fps: 10, eyes: [[0.3, -1.1]], aura: '#f97316' },
+    HU_KHONG_U_HON: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'HU_KHONG_U_HON', 2.6, 2.8), box: [2.6, 2.8], fps: 8, eyes: [[0.2, -1.2]], aura: '#38bdf8', float: true },
+    TOA_LIEM_MA_QUAN: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'TOA_LIEM_MA_QUAN', 3.8, 3.4), box: [3.8, 3.4], fps: 8, eyes: [[0.4, -1.4]], aura: '#60a5fa' },
+    HAC_DA_THONG_SOAI: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'HAC_DA_THONG_SOAI', 4.2, 3.6), box: [4.2, 3.6], fps: 8, eyes: [[0.5, -1.5]], aura: '#38bdf8' },
+
+    // YÊU THÚ & THẦN THÚ BỔ SUNG
+    MONSTER_SCORPION: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'MONSTER_SCORPION', 3.4, 2.4), box: [3.4, 2.4], fps: 8, eyes: [[0.7, -0.9]], aura: '#a855f7' },
+    NHAT_THUC_THAN_CAM: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'NHAT_THUC_THAN_CAM', 4.4, 3.2), box: [4.4, 3.2], fps: 8, eyes: [[0.6, -1.3]], aura: '#f59e0b', float: true },
+    BANG_LINH_THAN_THU: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'BANG_LINH_THAN_THU', 4.4, 3.2), box: [4.4, 3.2], fps: 8, eyes: [[0.6, -1.3]], aura: '#7dd3fc', float: true },
+    KIM_SUNG_THIEN_LONG: { draw: (g, R, ph) => drawSpriteMonster(g, R, ph, 'KIM_SUNG_THIEN_LONG', 4.8, 3.8), box: [4.8, 3.8], fps: 8, eyes: [[0.8, -1.6]], aura: '#c084fc', float: true }
   };
 
   const sheets = {};
   /** Dựng dải frame cho 1 loài (cache theo loài). */
   function sheet(type, def, ppm) {
     if (sheets[type]) return sheets[type];
-    const T = TYPES[type];
+    const T = TYPES[type] || TYPES.THACH_MA;
     const R = def.radiusM * ppm * SCALE;
     const FW = Math.ceil(T.box[0] * R), FH = Math.ceil(T.box[1] * R);
     const ax = FW / 2, ay = FH - 0.1 * R;
@@ -461,7 +508,7 @@ window.TT = window.TT || {};
 
   /** Vẽ yêu thú (thay TT.Art.drawEnemy). e: {type, def, x, y, vx, hp, maxHp, hitFlash, seed, telegraph, chargeT} */
   function drawEnemy(ctx, e, t, ppm) {
-    const def = e.def, T = TYPES[e.type];
+    const def = e.def, T = TYPES[e.type] || TYPES.THACH_MA;
     const r = def.radiusM * ppm;
     const sh = sheet(e.type, def, ppm);
     const face = e.vx >= 0 ? 1 : -1;

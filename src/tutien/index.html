@@ -32,9 +32,22 @@
       <div id="dd" class="bar dd"><div class="fill"></div><span class="txt"></span></div>
     </div>
     <div class="skills">
-      <span id="sk-sword" class="sk">LMB: Ngự Kiếm</span>
-      <span id="sk-dash" class="sk">Space: Lôi Độn</span>
-      <span id="sk-shield" class="sk">RMB: Kiếm Thuẫn</span>
+      <div id="sk-sword" class="sk-slot" title="[LMB] Ngự Kiếm — Phóng Phi Kiếm">
+        <canvas id="icon-sword" width="32" height="32"></canvas>
+        <div class="sk-info"><span class="sk-key">LMB</span><span class="sk-name">Ngự Kiếm</span></div>
+      </div>
+      <div id="sk-dash" class="sk-slot" title="[Space] Lôi Độn — Lướt nhanh né đòn">
+        <canvas id="icon-dash" width="32" height="32"></canvas>
+        <div class="sk-info"><span class="sk-key">Space</span><span class="sk-name">Lôi Độn</span></div>
+      </div>
+      <div id="sk-shield" class="sk-slot" title="[RMB] Kiếm Thuẫn — Chắn đạn & Giảm sát thương">
+        <canvas id="icon-shield" width="32" height="32"></canvas>
+        <div class="sk-info"><span class="sk-key">RMB</span><span class="sk-name">Kiếm Thuẫn</span></div>
+      </div>
+      <button id="sk-sects" class="sk-slot sk-sects-btn" type="button" title="[G] Tông Môn & Gia Tộc">
+        <canvas id="icon-sects" width="32" height="32"></canvas>
+        <div class="sk-info"><span class="sk-key">G</span><span class="sk-name">Tông Môn</span></div>
+      </button>
       <div id="quick"></div>
       <span class="sk lt">◆ <b id="linhthach">0</b></span>
       <span class="sk dim">[Tab/I] Túi · [H] Trợ giúp</span>
@@ -42,11 +55,25 @@
     <div id="tv" class="bar tv"><div class="fill"></div><span class="txt"></span></div>
   </div>
 
+  <!-- Tông Môn & Gia Tộc -->
+  <div id="sects-modal" class="modal hidden">
+    <div class="panel sects-panel">
+      <div class="tabs">
+        <button class="tab active" data-sect-tab="sect">[TÔNG MÔN]</button>
+        <button class="tab" data-sect-tab="clan">[GIA TỘC · HUYẾT MẠCH]</button>
+        <span class="title">TÔNG MÔN &amp; THẾ GIA</span>
+        <button id="sects-close" class="x">✕</button>
+      </div>
+      <div id="sects-body"></div>
+    </div>
+  </div>
+
   <!-- Menu chính -->
   <div id="menu" class="modal hidden">
     <div class="panel">
       <div class="tabs">
         <button class="tab" data-tab="inventory">[NHÂN VẬT &amp; TRANG BỊ]</button>
+        <button class="tab" data-tab="weapons">[VŨ KHÍ]</button>
         <button class="tab" data-tab="reroll">[TẨY LUYỆN]</button>
         <button class="tab" data-tab="alchemy">[LUYỆN ĐAN]</button>
         <button class="tab" data-tab="bicanh">[BÍ CẢNH]</button>

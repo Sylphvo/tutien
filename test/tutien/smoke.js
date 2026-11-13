@@ -12,7 +12,7 @@
       for (let i = 0; i < 30; i++) { g.update(1 / 60); g.render(); }
       for (const pr of g.scene.props.filter(x => x.interact)) { g.player.x = pr.x; g.player.y = pr.y + 20; g.update(1 / 60); g.render(); }
       out('tongmon ok props=' + g.scene.props.length);
-      UI.openMenu('bicanh'); UI.openMenu('skins'); UI.closeMenu(); out('tabs ok');
+      UI.openMenu('bicanh'); UI.openMenu('weapons'); UI.openMenu('skins'); UI.closeMenu(); out('tabs ok');
       // NPC: hội thoại với từng người, đi tuần vài giây
       for (const n of g.scene.npcs) { UI.openDialog(n); UI.nextLine(); UI.closeDialog(); }
       for (let i = 0; i < 180; i++) { g.update(1 / 60); if (i % 20 === 0) g.render(); }
