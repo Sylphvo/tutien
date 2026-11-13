@@ -1178,7 +1178,7 @@ window.TT = window.TT || {};
             moving: p.moving, dash: p.dashT > 0, dashAngle: Math.atan2(p.dashDir[1], p.dashDir[0]),
             cast: p.castT / CAST_DURATION, hurt: p.hurtT > 0, color: wcol, realm: st.realm, skin: st.skin, sword: st.swordSkin,
             mvx: p.mvx, mvy: p.mvy, ghosts: p.ghosts, sectColor: st.currentSect.color,
-            title: st.sectTitle, titleColor: st.currentSect.color
+            title: st.sectTitle, titleColor: st.currentSect.color, wingsId: st.wingsId
           });
         } });
       }
